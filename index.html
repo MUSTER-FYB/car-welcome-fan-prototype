@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>浮光跃金 · 车门迎宾投影交互原型</title>
+  <style>
+    :root {
+      --bg: #07090d;
+      --panel: rgba(14, 17, 24, 0.80);
+      --panel-border: rgba(232, 200, 138, 0.22);
+      --gold: #e6c687;
+      --gold-bright: #fff0c8;
+      --text: #eef1f6;
+      --muted: #939cad;
+    }
+    * { box-sizing: border-box; user-select: none; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
+    }
+    .app {
+      position: relative; width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 45%, #121722 0%, #06080c 72%);
+    }
+    .stage-wrap {
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      background: #000;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.85);
+      overflow: hidden;
+    }
+    #carVideo, #fallbackClosed, #fallbackOpen, #glCanvas, #fxCanvas, #calibCanvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      display: block; object-fit: cover;
+    }
+    #fallbackClosed, #fallbackOpen, #glCanvas, #fxCanvas, #calibCanvas { pointer-events: none; }
+    #calibCanvas.active { pointer-events: auto; cursor: crosshair; }
+
+    .topbar {
+      position: absolute; top: 18px; left: 22px; right: 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 20; pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+    .brand {
+      pointer-events: auto;
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 16px; border-radius: 999px;
+      background: var(--panel); backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+    }
+    .brand-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 12px var(--gold);
+    }
+    .brand h1 {
+      margin: 0; font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
+      color: var(--gold-bright);
+    }
+    .phase-pill {
+      font-size: 11px; color: var(--muted);
+      padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.12);
+    }
+    .top-actions { pointer-events: auto; display: flex; gap: 8px; }
+    .btn {
+      appearance: none; border: 1px solid var(--panel-border);
+      background: var(--panel); color: var(--text);
+      backdrop-filter: blur(14px);
+      padding: 8px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.03em;
+      cursor: pointer; transition: all 0.2s ease;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { border-color: var(--gold); color: var(--gold-bright); background: rgba(28, 32, 44, 0.9); }
+    .btn.primary {
+      background: linear-gradient(135deg, #d7b16a 0%, #f1d9a4 50%, #c69c52 100%);
+      color: #16120b; border-color: transparent; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(230, 198, 135, 0.30);
+    }
+    .btn.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn.active { border-color: var(--gold); background: rgba(230, 198, 135, 0.18); color: var(--gold-bright); }
+    .btn.recording { border-color: #ff6b6b; background: rgba(255, 80, 80, 0.22); color: #ffd4d4; }
+
+    .dock {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 20; width: min(740px, calc(100% - 40px));
+      padding: 10px 16px; border-radius: 16px;
+      background: rgba(14, 17, 24, 0.72); backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      display: flex; flex-direction: column; gap: 8px;
+      transition: opacity 0.35s ease;
+    }
+    .dock-row { display: flex; align-items: center; gap: 12px; }
+    .slider-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
+    .slider-label { font-size: 12px; color: var(--muted); white-space: nowrap; min-width: 84px; }
+    .slider-val { font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; flex: 1; height: 4px;
+      border-radius: 999px; background: rgba(255,255,255,0.16); outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--gold-bright); border: 2px solid #2a2112;
+      box-shadow: 0 0 10px rgba(230, 198, 135, 0.7);
+    }
+
+    .drawer {
+      position: absolute; top: 68px; right: 22px; width: 296px;
+      max-height: calc(100% - 160px); overflow-y: auto;
+      padding: 14px 16px; border-radius: 16px;
+      background: var(--panel); backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      z-index: 20; display: flex; flex-direction: column; gap: 11px;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .drawer.hidden { opacity: 0; pointer-events: none; transform: translateX(16px); }
+    .drawer h2 {
+      margin: 0; font-size: 12px; color: var(--gold); letter-spacing: 0.08em;
+      border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;
+    }
+    .ctrl { display: flex; flex-direction: column; gap: 5px; }
+    .ctrl-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+    .ctrl-head span:last-child { color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+    .check-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text); }
+    .hint {
+      font-size: 11px; color: var(--muted); line-height: 1.5;
+      background: rgba(255,255,255,0.04); padding: 8px 10px; border-radius: 8px;
+    }
+
+    body.clean-ui .topbar, body.clean-ui .dock, body.clean-ui .drawer { opacity: 0; pointer-events: none; }
+    .clean-exit { position: absolute; top: 14px; right: 14px; z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    body.clean-ui .clean-exit { opacity: 0.45; pointer-events: auto; }
+    body.clean-ui .clean-exit:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="stage-wrap" id="stageWrap">
+      <img id="fallbackClosed" src="assets/car_closed.png" alt="" />
+      <img id="fallbackOpen" src="assets/car_open.png" alt="" style="opacity:0;" />
+      <video id="carVideo" muted playsinline preload="auto"></video>
+      <canvas id="glCanvas"></canvas>
+      <canvas id="fxCanvas"></canvas>
+      <canvas id="calibCanvas"></canvas>
+
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <h1>浮光跃金 · 车门迎宾投影交互原型</h1>
+          <span class="phase-pill" id="phaseText">待机 · 车门已关闭</span>
+        </div>
+        <div class="top-actions">
+          <button class="btn" id="btnCalib">🎯 拖拽校准车门弧线</button>
+          <button class="btn" id="btnRecord">⏺ 录制演示视频</button>
+          <button class="btn active" id="btnDrawer">⚙ 参数面板</button>
+          <button class="btn" id="btnClean">⛶ 纯净演示 (H)</button>
+        </div>
+      </div>
+
+      <button class="btn clean-exit" id="btnExitClean">退出纯净演示 (H)</button>
+
+      <div class="drawer" id="drawer">
+        <h2>扇面尺寸与无轴边缘</h2>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>扇面放大倍率（沿车门圆弧）</span><span id="valRadius">1.04x</span></div>
+          <input type="range" id="rngRadius" min="80" max="145" value="104" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">52%</span></div>
+          <input type="range" id="rngWhiteOp" min="0" max="100" value="52" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">100%</span></div>
+          <input type="range" id="rngGoldOp" min="0" max="100" value="100" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>浮光跃金流速</span><span id="valGoldSpeed">1.2x</span></div>
+          <input type="range" id="rngGoldSpeed" min="0" max="250" value="120" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">110%</span></div>
+          <input type="range" id="rngGlow" min="0" max="180" value="110" />
+        </div>
+
+        <h2>迎宾时序节奏</h2>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>开门展开时长</span><span id="valOpenDur">2.0 s</span></div>
+          <input type="range" id="rngOpenDur" min="10" max="40" value="20" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>全开流金驻留时长</span><span id="valHoldDur">1.0 s</span></div>
+          <input type="range" id="rngHoldDur" min="5" max="80" value="10" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>缓缓消散时长</span><span id="valFadeDur">1.8 s</span></div>
+          <input type="range" id="rngFadeDur" min="5" max="40" value="18" />
+        </div>
+
+        <h2>投影仪光学效果</h2>
+        <div class="check-row">
+          <span>显示主驾方形投影仪微光束</span>
+          <input type="checkbox" id="chkBeam" checked />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">46%</span></div>
+          <input type="range" id="rngBeamOp" min="0" max="100" value="46" />
+        </div>
+
+        <div class="hint">
+          已按真实地平面三维圆弧标定：扇柄圆轴已去除，两条直线边严格贴合<b>车身门槛</b>与<b>车门底边</b>，外弧线贴合<b>车门开启圆弧</b>。按 <b>H</b> 隐藏底部栏可欣赏最完整的大弧面！
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" id="btnResetArc" style="flex:1; justify-content:center;">重置车门弧线</button>
+          <button class="btn" id="btnCopyAE" style="flex:1; justify-content:center;">复制校准坐标</button>
+        </div>
+      </div>
+
+      <div class="dock">
+        <div class="dock-row">
+          <button class="btn primary" id="btnPlayWelcome">▶ 模拟解锁开门迎宾</button>
+          <button class="btn" id="btnCloseDoor">↺ 关门复位</button>
+          <button class="btn" id="btnHoldOpen">✦ 全开常亮赏析</button>
+          <div class="slider-wrap">
+            <span class="slider-label">车门开合角度</span>
+            <input type="range" id="rngDoor" min="0" max="1000" value="0" />
+            <span class="slider-val" id="valDoorAngle">0°</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // === True 3D Ground-Plane Metric Door-Arc Calibration (measured directly from car_door_open.mp4) ===
+  // Metric floor coordinates centered on car door hinge O = (0, 0):
+  //   O = (0, 0)                     -> Car door hinge projection on garage floor
+  //   A = (1, 0)          [0 deg]    -> Closed door bottom-rear tip along car sill
+  //   M = (cos34, sin34)  [34 deg]   -> Half-open door outer-bottom tip on floor arc
+  //   B = (cos68, sin68)  [68 deg]   -> Fully-open door outer-bottom tip on floor arc
+  const MAX_DOOR_RAD = 68.0 * Math.PI / 180.0;
+  const MID_DOOR_RAD = 34.0 * Math.PI / 180.0;
+
+  const METRIC_PTS = [
+    { x: 0.0, y: 0.0 },
+    { x: 1.0, y: 0.0 },
+    { x: Math.cos(MID_DOOR_RAD), y: Math.sin(MID_DOOR_RAD) },
+    { x: Math.cos(MAX_DOOR_RAD), y: Math.sin(MAX_DOOR_RAD) }
+  ];
+
+  const DEFAULT_ANCHORS = [
+    { x: 0.428, y: 0.708, label: 'O.车门转轴' },
+    { x: 0.700, y: 0.870, label: 'A.车身门槛端(0°)' },
+    { x: 0.525, y: 0.945, label: 'M.车门半开弧点(34°)' },
+    { x: 0.325, y: 0.855, label: 'B.车门全开端(68°)' }
+  ];
+  const DEFAULT_EMITTER = { x: 0.537, y: 0.303, label: '主驾方形投影仪' };
+
+  const STORAGE_KEY = 'car_fan_welcome_arc_calib_v3';
+  let anchors = DEFAULT_ANCHORS.map(p => ({ ...p }));
+  let emitter = { ...DEFAULT_EMITTER };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (saved && Array.isArray(saved.anchors) && saved.anchors.length === 4) {
+      anchors = saved.anchors.map((p, i) => ({ ...DEFAULT_ANCHORS[i], x: p.x, y: p.y }));
+      if (saved.emitter) emitter = { ...DEFAULT_EMITTER, x: saved.emitter.x, y: saved.emitter.y };
+    }
+  } catch {}
+
+  const state = {
+    door: 0.0,         // 0..1 door open progress
+    visibility: 0.0,
+    dissolve: 0.0,
+    mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
+    phaseTime: 0.0,
+    fanRadius: 1.04,   // 1.0 = exact door length arc, 1.04 = grand rounded arc staying 100% inside 16:9 frame
+    whiteOp: 0.52,
+    goldOp: 1.00,
+    goldSpeed: 1.2,
+    glow: 1.10,
+    openDur: 2.0,
+    holdDur: 1.0,
+    fadeDur: 1.8,
+    showBeam: true,
+    beamOp: 0.46,
+    calib: false,
+    videoReady: false,
+    videoDuration: 4.0
+  };
+
+  // DOM
+  const stageWrap = document.getElementById('stageWrap');
+  const video = document.getElementById('carVideo');
+  const fallbackClosed = document.getElementById('fallbackClosed');
+  const fallbackOpen = document.getElementById('fallbackOpen');
+  const glCanvas = document.getElementById('glCanvas');
+  const fxCanvas = document.getElementById('fxCanvas');
+  const calibCanvas = document.getElementById('calibCanvas');
+  const fxCtx = fxCanvas.getContext('2d');
+  const calibCtx = calibCanvas.getContext('2d');
+  const phaseText = document.getElementById('phaseText');
+  const rngDoor = document.getElementById('rngDoor');
+  const valDoorAngle = document.getElementById('valDoorAngle');
+
+  // Preload scrubbable all-intra MP4 into memory Blob URL for zero-lag 60fps door seeking
+  fetch('assets/car_door_open_scrub.mp4')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(blob => {
+      video.src = URL.createObjectURL(blob);
+      video.load();
+    })
+    .catch(() => {
+      video.src = 'assets/car_door_open_scrub.mp4';
+      video.load();
+    });
+
+  video.addEventListener('loadedmetadata', () => {
+    state.videoReady = true;
+    state.videoDuration = Math.max(0.1, video.duration - 0.05);
+    fallbackClosed.style.display = 'none';
+    fallbackOpen.style.display = 'none';
+    video.pause();
+    video.currentTime = state.door * state.videoDuration;
+  });
+  video.addEventListener('error', () => {
+    state.videoReady = false;
+    video.style.display = 'none';
+  });
+
+  // === Exact General 4-Point 3x3 Homography Solver (Gaussian Elimination) ===
+  function solveHomography(srcPts, dstPts) {
+    // Solves H * [sx, sy, 1]^T ~ [dx, dy, 1]^T, with H[8] = 1
+    const A = [];
+    const b = [];
+    for (let i = 0; i < 4; i++) {
+      const sx = srcPts[i].x, sy = srcPts[i].y;
+      const dx = dstPts[i].x, dy = dstPts[i].y;
+      A.push([sx, sy, 1, 0, 0, 0, -dx * sx, -dx * sy]);
+      b.push(dx);
+      A.push([0, 0, 0, sx, sy, 1, -dy * sx, -dy * sy]);
+      b.push(dy);
+    }
+    // Gauss-Jordan 8x8
+    const n = 8;
+    for (let i = 0; i < n; i++) A[i].push(b[i]);
+    for (let col = 0; col < n; col++) {
+      let maxRow = col;
+      for (let row = col + 1; row < n; row++) {
+        if (Math.abs(A[row][col]) > Math.abs(A[maxRow][col])) maxRow = row;
+      }
+      const tmp = A[col]; A[col] = A[maxRow]; A[maxRow] = tmp;
+      const piv = A[col][col] || 1e-12;
+      for (let j = col; j <= n; j++) A[col][j] /= piv;
+      for (let row = 0; row < n; row++) {
+        if (row === col) continue;
+        const f = A[row][col];
+        for (let j = col; j <= n; j++) A[row][j] -= f * A[col][j];
+      }
+    }
+    return [
+      A[0][n], A[1][n], A[2][n],
+      A[3][n], A[4][n], A[5][n],
+      A[6][n], A[7][n], 1.0
+    ];
+  }
+
+  function invert3x3ColMajor(m) {
+    const [a,b,c, d,e,f, g,h,i] = m;
+    const A = e*i - f*h, B = -(d*i - f*g), C = d*h - e*g;
+    const D = -(b*i - c*h), E = a*i - c*g, F = -(a*h - b*g);
+    const G = b*f - c*e, H = -(a*f - c*d), I = a*e - b*d;
+    const det = a*A + b*B + c*C || 1e-12;
+    return new Float32Array([
+      A/det, B/det, C/det,
+      D/det, E/det, F/det,
+      G/det, H/det, I/det
+    ]);
+  }
+
+  let H_floor = solveHomography(METRIC_PTS, anchors);
+  let invH_floor = invert3x3ColMajor(H_floor);
+
+  function updateHomography() {
+    H_floor = solveHomography(METRIC_PTS, anchors);
+    invH_floor = invert3x3ColMajor(H_floor);
+  }
+
+  function projectFloorToScreen(fx, fy) {
+    const m = H_floor;
+    const x = m[0]*fx + m[1]*fy + m[2];
+    const y = m[3]*fx + m[4]*fy + m[5];
+    const w = m[6]*fx + m[7]*fy + m[8];
+    return { x: x / w, y: y / w };
+  }
+
+  // === WebGL Metric Polar Fan Renderer ===
+  const gl = glCanvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true });
+
+  const VS = `
+    attribute vec2 aPos;
+    varying vec2 vScreen;
+    void main() {
+      vScreen = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5);
+      gl_Position = vec4(aPos, 0.0, 1.0);
+    }
+  `;
+
+  const FS = `
+    precision highp float;
+    varying vec2 vScreen;
+
+    uniform sampler2D uWhiteTex;
+    uniform sampler2D uGoldTex;
+    uniform mat3 uInvFloorH;     // Screen [0..1] -> true metric floor (X, Y) centered at car door hinge O
+    uniform float uTime;
+    uniform float uDoor;         // 0..1 door opening progress
+    uniform float uMaxAngle;     // 68 deg in radians
+    uniform float uFanRadius;    // outer arc radius in door-length units (1.0 = exact door arc)
+    uniform float uVisibility;   // 0..1 overall alpha
+    uniform float uDissolve;     // 0..1 dissolve progress
+    uniform float uWhiteOp;
+    uniform float uGoldOp;
+    uniform float uGoldSpeed;
+    uniform float uGlow;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+        u.y
+      );
+    }
+
+    void main() {
+      if (uDoor <= 0.003 || uVisibility <= 0.002) discard;
+
+      // 1. Project screen pixel into TRUE 3D metric floor coordinates centered on car door hinge O = (0,0)
+      vec3 q = uInvFloorH * vec3(vScreen, 1.0);
+      if (q.z <= 0.0001) discard;
+      vec2 floorXY = q.xy / q.z;
+
+      float rFloor = length(floorXY);
+      // Skip pixels outside generous metric bounds
+      if (rFloor > uFanRadius * 1.08 || rFloor < 0.04) discard;
+
+      // Angle from closed car sill (0 rad = OA) sweeping outward toward open door (uMaxAngle = OB)
+      float ang = atan(floorXY.y, floorXY.x);
+
+      // Current door opening angle (starts as slim closed beam along sill, sweeps strictly with door edge!)
+      float curAng = mix(0.035, uMaxAngle, clamp(uDoor, 0.0, 1.0));
+
+      // Crisp alignment to the TWO STRAIGHT EDGES (car sill ang=0 and swinging door edge ang=curAng)
+      float edgeFeather = 0.014;
+      float sillEdgeMask = smoothstep(-edgeFeather, edgeFeather * 0.8, ang);
+      float doorEdgeMask = 1.0 - smoothstep(curAng - edgeFeather * 0.8, curAng + edgeFeather, ang);
+      float sectorMask = sillEdgeMask * doorEdgeMask;
+      if (sectorMask <= 0.002) discard;
+
+      // Smooth axis-free inner fade (no fan handle/rivet, light radiates cleanly from under the door hinge!)
+      float innerFade = smoothstep(0.07 * uFanRadius, 0.21 * uFanRadius, rFloor);
+
+      // Gentle, rounded, silky outer arc aligned to the car door's opening arc (NO sharp spiky sawtooth!)
+      float normA = clamp(ang / curAng, 0.0, 1.0);
+      // Ultra-soft rounded petal wave (only 0.9% amplitude, smooth cosine curve, zero sharp corners)
+      float softWave = 1.0 - 0.009 * (0.5 - 0.5 * cos(normA * 3.14159265 * 14.0));
+      float arcLimit = uFanRadius * softWave;
+      float outerMask = 1.0 - smoothstep(arcLimit * 0.945, arcLimit * 1.005, rFloor);
+      float geoMask = sectorMask * innerFade * outerMask;
+      if (geoMask <= 0.002) discard;
+
+      // 2. Map metric floor polar sector (rFloor, ang) -> canonical 2K axis-free fan texture UV
+      //    Use graceful central ~132 deg span (-1.15..+1.15 rad) so pleats & gold veins stay lush and un-pinched!
+      //    Stop sampling at texR = 0.745 (below the deep jagged sawtooth valleys) so the outer edge is a
+      //    pure, smooth, softly-feathered circular arc matching the car door's exact sweep!
+      float texAng = mix(-1.15, 1.15, normA);
+
+      float normR = clamp((rFloor / arcLimit - 0.07) / 0.93, 0.0, 1.0);
+      float texR = mix(0.165, 0.675, normR);
+
+      // Reconstruct UV in 2560x1440 fan texture (pivot at 0.493, 0.877; height-normalized radius)
+      vec2 pivotUV = vec2(0.493, 0.877);
+      vec2 sampleUV = vec2(
+        pivotUV.x + sin(texAng) * texR * (9.0 / 16.0),
+        pivotUV.y - cos(texAng) * texR
+      );
+      if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) discard;
+
+      vec4 wTex = texture2D(uWhiteTex, sampleUV);
+      vec4 gTex = texture2D(uGoldTex, sampleUV);
+
+      // Subtle golden reveal slightly trailing the frosted white opening
+      float whiteFadeIn = smoothstep(0.0, 0.14, uDoor);
+      float goldReveal = smoothstep(0.08, 0.78, uDoor);
+
+      // Poetic mist & golden-dust dissolve during Stage 3
+      float n1 = noise(sampleUV * 9.0 + vec2(0.0, -uTime * 0.25));
+      float n2 = noise(sampleUV * 22.0 + vec2(uTime * 0.15, -uTime * 0.35));
+      float dissolveField = (1.0 - normR) * 0.45 + n1 * 0.40 + n2 * 0.15;
+      float dissolveMask = 1.0 - smoothstep(uDissolve * 1.25 - 0.28, uDissolve * 1.25 + 0.05, dissolveField);
+      float lifeAlpha = uVisibility * mix(1.0, dissolveMask, smoothstep(0.0, 0.15, uDissolve));
+
+      // === 浮光跃金: High-contrast flowing molten-gold specular light strictly inside golden veins ===
+      float t = uTime * uGoldSpeed;
+      // 1) Primary radial molten-gold wave gliding smoothly from hinge outward along the curved veins
+      float radialFlow = sin(normR * 10.5 - t * 3.1 + texAng * 1.8 + n1 * 2.2) * 0.5 + 0.5;
+      float radialCrest = pow(radialFlow, 2.6);
+
+      // 2) Broad luxury diagonal specular light sweep gliding gracefully across the golden fan
+      float sweepPos = fract(t * 0.34);
+      float sweepCoord = normA * 0.72 + normR * 0.42 - sweepPos * 1.45 + 0.22;
+      float diagSweep = exp(-pow(sweepCoord * 4.2, 2.0));
+
+      // 3) Secondary fine ripple + sparkling champagne starlight glints ("跃金")
+      float fineRipple = pow(sin(normR * 19.0 - t * 2.3 - texAng * 3.6 + n2 * 2.8) * 0.5 + 0.5, 3.8);
+      float glintNoise = noise(sampleUV * 72.0 + vec2(t * 0.55, -t * 0.85));
+      float glint = pow(glintNoise, 7.5) * 4.2 * (0.28 + 0.72 * max(radialCrest, diagSweep));
+
+      float flowEnergy = clamp(radialCrest * 0.85 + diagSweep * 1.15 + fineRipple * 0.45, 0.0, 1.8);
+
+      // Semi-transparent pearl-white frosted fan layer (subtle warm catch-light as golden wave sweeps past)
+      float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * geoMask * lifeAlpha;
+      vec3 wColor = wTex.rgb * (1.02 + 0.14 * (radialCrest * 0.5 + diagSweep * 0.7) * uGlow);
+
+      // 100% opaque flowing champagne-gold veins:
+      // Deepen resting antique-gold slightly so traveling molten-gold crests pop with unmistakable luxury contrast!
+      float gAlpha = gTex.a * uGoldOp * goldReveal * geoMask * lifeAlpha;
+      vec3 goldResting = gTex.rgb * vec3(0.84, 0.75, 0.58);
+      vec3 goldMolten = vec3(1.0, 0.90, 0.62) * (radialCrest * 0.72 + fineRipple * 0.38) * uGlow;
+      vec3 goldSpecWhite = vec3(1.0, 0.98, 0.88) * (diagSweep * 0.88 + glint * 0.65) * uGlow;
+      vec3 gColor = clamp(goldResting + goldMolten + goldSpecWhite, 0.0, 1.65);
+
+      // Warm luminous golden bloom halo pulsing with the traveling flow on the dark garage floor
+      float auraMask = smoothstep(0.02, 0.50, gTex.a + wTex.a * 0.22) * geoMask * lifeAlpha;
+      vec3 auraColor = vec3(1.0, 0.84, 0.48) * (0.14 + 0.30 * flowEnergy) * uGlow * goldReveal;
+
+      // Composite opaque gold cleanly over semi-transparent frosted white
+      float outAlpha = gAlpha + wAlpha * (1.0 - gAlpha);
+      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.34;
+
+      // Lingering golden starlight dust during dissolve
+      if (uDissolve > 0.05 && uDissolve < 0.98) {
+        float edgeGlow = smoothstep(0.0, 0.18, dissolveMask) * (1.0 - smoothstep(0.18, 0.55, dissolveMask));
+        float dust = pow(noise(sampleUV * 85.0 + vec2(0.0, -uTime * 1.4)), 9.0) * 4.5;
+        float dustStrength = edgeGlow * dust * (wTex.a + gTex.a) * geoMask * uVisibility;
+        outPremult += vec3(1.0, 0.90, 0.62) * dustStrength * 1.25;
+        outAlpha = clamp(outAlpha + dustStrength * 0.7, 0.0, 1.0);
+      }
+
+      if (outAlpha <= 0.002) discard;
+      gl_FragColor = vec4(outPremult, clamp(outAlpha, 0.0, 1.0));
+    }
+  `;
+
+  function compileShader(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const aPos = gl.getAttribLocation(prog, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  const uniforms = {};
+  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uWhiteOp','uGoldOp','uGoldSpeed','uGlow']
+    .forEach(n => uniforms[n] = gl.getUniformLocation(prog, n));
+
+  function loadTexture(url, unit) {
+    const tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,0]));
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    };
+    img.src = url + '?v=4';
+    return tex;
+  }
+
+  loadTexture('assets/fan_white_layer.png', 0);
+  loadTexture('assets/fan_gold_layer.png', 1);
+  gl.uniform1i(uniforms.uWhiteTex, 0);
+  gl.uniform1i(uniforms.uGoldTex, 1);
+
+  function resize() {
+    const rect = stageWrap.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    [glCanvas, fxCanvas, calibCanvas].forEach(c => {
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    });
+    gl.viewport(0, 0, w, h);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+  function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
+
+  // === Soft Volumetric Projector Beam from Square Dashboard Projector ===
+  function drawProjectorBeam(timeSec) {
+    const w = fxCanvas.width, h = fxCanvas.height;
+    fxCtx.clearRect(0, 0, w, h);
+    const beamStrength = state.showBeam ? state.beamOp * state.visibility * (1.0 - state.dissolve * 0.92) * Math.min(1, state.door * 3.0) : 0;
+    if (beamStrength <= 0.005) return;
+
+    const ex = emitter.x * w, ey = emitter.y * h;
+    const curAng = 0.035 + (MAX_DOOR_RAD - 0.035) * state.door;
+    const R = state.fanRadius * 0.92;
+    const pSill = projectFloorToScreen(R, 0);
+    const pMid  = projectFloorToScreen(R * Math.cos(curAng * 0.5), R * Math.sin(curAng * 0.5));
+    const pDoor = projectFloorToScreen(R * Math.cos(curAng), R * Math.sin(curAng));
+
+    fxCtx.save();
+    fxCtx.globalCompositeOperation = 'screen';
+
+    // Soft atmospheric volumetric light cone
+    fxCtx.save();
+    fxCtx.filter = `blur(${Math.max(16, Math.round(w * 0.018))}px)`;
+    const grad = fxCtx.createLinearGradient(ex, ey, pMid.x * w, pMid.y * h);
+    const pulse = 0.92 + 0.08 * Math.sin(timeSec * 2.4);
+    grad.addColorStop(0.0, `rgba(255, 224, 158, ${0.62 * beamStrength * pulse})`);
+    grad.addColorStop(0.30, `rgba(244, 206, 132, ${0.26 * beamStrength * pulse})`);
+    grad.addColorStop(0.78, `rgba(232, 192, 118, ${0.09 * beamStrength})`);
+    grad.addColorStop(1.0, `rgba(232, 192, 118, 0.0)`);
+
+    fxCtx.beginPath();
+    fxCtx.moveTo(ex, ey);
+    fxCtx.lineTo(pDoor.x * w, pDoor.y * h);
+    fxCtx.lineTo(pMid.x * w, pMid.y * h);
+    fxCtx.lineTo(pSill.x * w, pSill.y * h);
+    fxCtx.closePath();
+    fxCtx.fillStyle = grad;
+    fxCtx.fill();
+    fxCtx.restore();
+
+    // Soft warm breathing halo on the user's rounded-square dashboard projector
+    const lensR = Math.max(18, w * 0.025);
+    const lensGrad = fxCtx.createRadialGradient(ex, ey, 0, ex, ey, lensR);
+    lensGrad.addColorStop(0.0, `rgba(255, 244, 210, ${0.88 * beamStrength * pulse})`);
+    lensGrad.addColorStop(0.38, `rgba(245, 202, 120, ${0.40 * beamStrength * pulse})`);
+    lensGrad.addColorStop(1.0, 'rgba(245, 202, 120, 0)');
+    fxCtx.fillStyle = lensGrad;
+    fxCtx.beginPath();
+    fxCtx.arc(ex, ey, lensR, 0, Math.PI * 2);
+    fxCtx.fill();
+
+    fxCtx.restore();
+  }
+
+  // === Interactive Calibration Overlay (O, A, M, B Door-Arc Handles) ===
+  let dragTarget = null;
+  function drawCalibOverlay() {
+    const w = calibCanvas.width, h = calibCanvas.height;
+    calibCtx.clearRect(0, 0, w, h);
+    if (!state.calib) return;
+
+    calibCtx.save();
+    // Draw projected true 3D circular arc at r = fanRadius and r = 1.0
+    const drawArc = (rad, color, dash) => {
+      calibCtx.strokeStyle = color;
+      calibCtx.lineWidth = 2;
+      calibCtx.setLineDash(dash);
+      calibCtx.beginPath();
+      for (let i = 0; i <= 40; i++) {
+        const a = (MAX_DOOR_RAD * i) / 40;
+        const p = projectFloorToScreen(rad * Math.cos(a), rad * Math.sin(a));
+        if (i === 0) calibCtx.moveTo(p.x * w, p.y * h);
+        else calibCtx.lineTo(p.x * w, p.y * h);
+      }
+      calibCtx.stroke();
+      calibCtx.setLineDash([]);
+    };
+    drawArc(1.0, 'rgba(100, 220, 255, 0.75)', [6, 5]);
+    drawArc(state.fanRadius, 'rgba(230, 198, 135, 0.95)', []);
+
+    // Draw two straight edges O->A (sill) and O->B (open door)
+    const pO = projectFloorToScreen(0, 0);
+    const pA = projectFloorToScreen(state.fanRadius, 0);
+    const pB = projectFloorToScreen(state.fanRadius * Math.cos(MAX_DOOR_RAD), state.fanRadius * Math.sin(MAX_DOOR_RAD));
+    calibCtx.strokeStyle = 'rgba(255, 223, 146, 0.9)';
+    calibCtx.lineWidth = 2;
+    calibCtx.beginPath();
+    calibCtx.moveTo(pO.x * w, pO.y * h); calibCtx.lineTo(pA.x * w, pA.y * h);
+    calibCtx.moveTo(pO.x * w, pO.y * h); calibCtx.lineTo(pB.x * w, pB.y * h);
+    calibCtx.stroke();
+
+    // Draw 4 draggable anchor handles (O, A, M, B)
+    anchors.forEach((p, i) => {
+      const px = p.x * w, py = p.y * h;
+      calibCtx.fillStyle = i === 0 ? '#ff6b6b' : '#e6c687';
+      calibCtx.strokeStyle = '#14110b';
+      calibCtx.lineWidth = 2.5;
+      calibCtx.beginPath();
+      calibCtx.arc(px, py, 9, 0, Math.PI * 2);
+      calibCtx.fill();
+      calibCtx.stroke();
+      calibCtx.fillStyle = '#fff';
+      calibCtx.font = 'bold 13px sans-serif';
+      calibCtx.fillText(p.label, px + 13, py - 8);
+    });
+
+    // Emitter handle
+    const ex = emitter.x * w, ey = emitter.y * h;
+    calibCtx.fillStyle = '#7cd4ff';
+    calibCtx.strokeStyle = '#081822';
+    calibCtx.lineWidth = 2.5;
+    calibCtx.beginPath();
+    calibCtx.arc(ex, ey, 9, 0, Math.PI * 2);
+    calibCtx.fill();
+    calibCtx.stroke();
+    calibCtx.fillStyle = '#bdeaff';
+    calibCtx.fillText('投影仪出光点', ex + 13, ey + 4);
+    calibCtx.restore();
+  }
+
+  function saveCalib() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ anchors, emitter })); } catch {}
+  }
+
+  calibCanvas.addEventListener('pointerdown', (e) => {
+    if (!state.calib) return;
+    const rect = calibCanvas.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    const hitR = 0.032;
+    if (Math.hypot(nx - emitter.x, ny - emitter.y) < hitR) {
+      dragTarget = { type: 'emitter' };
+      calibCanvas.setPointerCapture(e.pointerId);
+      return;
+    }
+    for (let i = 0; i < 4; i++) {
+      if (Math.hypot(nx - anchors[i].x, ny - anchors[i].y) < hitR) {
+        dragTarget = { type: 'anchor', idx: i };
+        calibCanvas.setPointerCapture(e.pointerId);
+        return;
+      }
+    }
+  });
+  calibCanvas.addEventListener('pointermove', (e) => {
+    if (!dragTarget) return;
+    const rect = calibCanvas.getBoundingClientRect();
+    const nx = Math.max(0.0, Math.min(1.0, (e.clientX - rect.left) / rect.width));
+    const ny = Math.max(0.0, Math.min(1.0, (e.clientY - rect.top) / rect.height));
+    if (dragTarget.type === 'emitter') {
+      emitter.x = nx; emitter.y = ny;
+    } else {
+      anchors[dragTarget.idx].x = nx; anchors[dragTarget.idx].y = ny;
+      updateHomography();
+    }
+    saveCalib();
+  });
+  calibCanvas.addEventListener('pointerup', () => { dragTarget = null; });
+
+  // === Door Video Sync ===
+  let lastSeekVal = -1;
+  function syncDoorVisual(p) {
+    const clamped = Math.max(0, Math.min(1, p));
+    valDoorAngle.textContent = `${Math.round(clamped * 68)}°`;
+    if (state.mode !== 'manual') rngDoor.value = Math.round(clamped * 1000);
+    if (state.videoReady) {
+      const targetTime = clamped * state.videoDuration;
+      if (Math.abs(targetTime - lastSeekVal) > 0.008 && !video.seeking) {
+        video.currentTime = targetTime;
+        lastSeekVal = targetTime;
+      }
+    } else {
+      fallbackOpen.style.opacity = String(clamped);
+    }
+  }
+
+  // === Animation Loop ===
+  let lastTs = performance.now();
+  function tick(now) {
+    const dt = Math.min(0.05, (now - lastTs) / 1000);
+    lastTs = now;
+    const tSec = now / 1000;
+
+    if (state.mode === 'opening') {
+      state.phaseTime += dt;
+      const p = Math.min(1, state.phaseTime / state.openDur);
+      state.door = easeInOutCubic(p);
+      state.visibility = 1.0;
+      state.dissolve = 0.0;
+      phaseText.textContent = `迎宾展开中 · ${Math.round(state.door * 68)}°`;
+      if (p >= 1) { state.mode = 'holding'; state.phaseTime = 0; }
+    } else if (state.mode === 'holding') {
+      state.phaseTime += dt;
+      state.door = 1.0;
+      state.visibility = 1.0;
+      state.dissolve = 0.0;
+      const rem = Math.max(0, state.holdDur - state.phaseTime);
+      phaseText.textContent = `全开驻留 · 浮光跃金 (${rem.toFixed(1)}s)`;
+      if (state.phaseTime >= state.holdDur) { state.mode = 'fading'; state.phaseTime = 0; }
+    } else if (state.mode === 'fading') {
+      state.phaseTime += dt;
+      const p = Math.min(1, state.phaseTime / state.fadeDur);
+      state.door = 1.0;
+      state.dissolve = easeInOutCubic(p);
+      state.visibility = 1.0 - easeOutQuart(p) * 0.92;
+      phaseText.textContent = `缓缓消散中 · ${Math.round((1 - p) * 100)}%`;
+      if (p >= 1) {
+        state.visibility = 0.0; state.dissolve = 1.0; state.mode = 'idle';
+        phaseText.textContent = '迎宾结束 · 扇面已消散';
+      }
+    } else if (state.mode === 'showcase') {
+      state.door = 1.0;
+      state.visibility = 1.0;
+      state.dissolve = 0.0;
+      phaseText.textContent = '全开常亮赏析 · 浮光跃金持续流动';
+    }
+
+    syncDoorVisual(state.door);
+
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniformMatrix3fv(uniforms.uInvFloorH, false, invH_floor);
+    gl.uniform1f(uniforms.uTime, tSec);
+    gl.uniform1f(uniforms.uDoor, state.door);
+    gl.uniform1f(uniforms.uMaxAngle, MAX_DOOR_RAD);
+    gl.uniform1f(uniforms.uFanRadius, state.fanRadius);
+    gl.uniform1f(uniforms.uVisibility, state.visibility);
+    gl.uniform1f(uniforms.uDissolve, state.dissolve);
+    gl.uniform1f(uniforms.uWhiteOp, state.whiteOp);
+    gl.uniform1f(uniforms.uGoldOp, state.goldOp);
+    gl.uniform1f(uniforms.uGoldSpeed, state.goldSpeed);
+    gl.uniform1f(uniforms.uGlow, state.glow);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    drawProjectorBeam(tSec);
+    drawCalibOverlay();
+
+    if (recorder && recorder.state === 'recording') {
+      recCtx.clearRect(0, 0, recCanvas.width, recCanvas.height);
+      if (state.videoReady) recCtx.drawImage(video, 0, 0, recCanvas.width, recCanvas.height);
+      else {
+        recCtx.drawImage(fallbackClosed, 0, 0, recCanvas.width, recCanvas.height);
+        recCtx.save(); recCtx.globalAlpha = state.door;
+        recCtx.drawImage(fallbackOpen, 0, 0, recCanvas.width, recCanvas.height);
+        recCtx.restore();
+      }
+      recCtx.drawImage(glCanvas, 0, 0, recCanvas.width, recCanvas.height);
+      recCtx.drawImage(fxCanvas, 0, 0, recCanvas.width, recCanvas.height);
+    }
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // === Controls ===
+  function triggerWelcome() {
+    state.door = 0; state.visibility = 1; state.dissolve = 0;
+    state.phaseTime = 0; state.mode = 'opening';
+  }
+  document.getElementById('btnPlayWelcome').onclick = triggerWelcome;
+  document.getElementById('btnCloseDoor').onclick = () => {
+    state.mode = 'idle'; state.door = 0; state.visibility = 0; state.dissolve = 0;
+    phaseText.textContent = '待机 · 车门已关闭';
+  };
+  document.getElementById('btnHoldOpen').onclick = () => { state.mode = 'showcase'; };
+
+  rngDoor.addEventListener('input', () => {
+    state.mode = 'manual';
+    state.door = Number(rngDoor.value) / 1000;
+    state.visibility = state.door > 0.005 ? 1.0 : 0.0;
+    state.dissolve = 0.0;
+    phaseText.textContent = `手动联动 · 车门 ${Math.round(state.door * 68)}°`;
+  });
+
+  function bindRange(id, valId, fmt, setter) {
+    const el = document.getElementById(id);
+    const out = document.getElementById(valId);
+    el.addEventListener('input', () => {
+      const v = Number(el.value);
+      out.textContent = fmt(v);
+      setter(v);
+    });
+  }
+  bindRange('rngRadius', 'valRadius', v => `${(v/100).toFixed(2)}x`, v => state.fanRadius = v / 100);
+  bindRange('rngWhiteOp', 'valWhiteOp', v => `${v}%`, v => state.whiteOp = v / 100);
+  bindRange('rngGoldOp', 'valGoldOp', v => `${v}%`, v => state.goldOp = v / 100);
+  bindRange('rngGoldSpeed', 'valGoldSpeed', v => `${(v/100).toFixed(1)}x`, v => state.goldSpeed = v / 100);
+  bindRange('rngGlow', 'valGlow', v => `${v}%`, v => state.glow = v / 100);
+  bindRange('rngOpenDur', 'valOpenDur', v => `${(v/10).toFixed(1)} s`, v => state.openDur = v / 10);
+  bindRange('rngHoldDur', 'valHoldDur', v => `${(v/10).toFixed(1)} s`, v => state.holdDur = v / 10);
+  bindRange('rngFadeDur', 'valFadeDur', v => `${(v/10).toFixed(1)} s`, v => state.fadeDur = v / 10);
+  bindRange('rngBeamOp', 'valBeamOp', v => `${v}%`, v => state.beamOp = v / 100);
+  document.getElementById('chkBeam').addEventListener('change', (e) => { state.showBeam = e.target.checked; });
+
+  const btnCalib = document.getElementById('btnCalib');
+  btnCalib.onclick = () => {
+    state.calib = !state.calib;
+    btnCalib.classList.toggle('active', state.calib);
+    calibCanvas.classList.toggle('active', state.calib);
+    if (state.calib && state.door < 0.8) state.mode = 'showcase';
+  };
+  const drawer = document.getElementById('drawer');
+  const btnDrawer = document.getElementById('btnDrawer');
+  btnDrawer.onclick = () => {
+    const hidden = drawer.classList.toggle('hidden');
+    btnDrawer.classList.toggle('active', !hidden);
+  };
+  function toggleClean() { document.body.classList.toggle('clean-ui'); }
+  document.getElementById('btnClean').onclick = toggleClean;
+  document.getElementById('btnExitClean').onclick = toggleClean;
+
+  document.getElementById('btnResetArc').onclick = () => {
+    anchors = DEFAULT_ANCHORS.map(p => ({ ...p }));
+    emitter = { ...DEFAULT_EMITTER };
+    updateHomography();
+    saveCalib();
+  };
+  document.getElementById('btnCopyAE').onclick = () => {
+    const data = {
+      compSize: [1920, 1080],
+      doorArcAnchorsPx: anchors.map(p => ({ label: p.label, x: Math.round(p.x*1920), y: Math.round(p.y*1080) })),
+      projectorEmitterPx: [Math.round(emitter.x*1920), Math.round(emitter.y*1080)],
+      fanRadiusScale: state.fanRadius,
+      whiteOpacity: Math.round(state.whiteOp*100),
+      goldOpacity: Math.round(state.goldOp*100),
+      openSec: state.openDur, holdSec: state.holdDur, fadeSec: state.fadeDur
+    };
+    navigator.clipboard?.writeText(JSON.stringify(data, null, 2));
+    alert('已复制当前车门圆弧锚点与参数到剪贴板！');
+  };
+
+  // Recorder
+  let recorder = null, recChunks = [];
+  const recCanvas = document.createElement('canvas');
+  recCanvas.width = 1920; recCanvas.height = 1080;
+  const recCtx = recCanvas.getContext('2d');
+  const btnRecord = document.getElementById('btnRecord');
+  btnRecord.onclick = () => {
+    if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+    recChunks = [];
+    const stream = recCanvas.captureStream(30);
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+    recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 14000000 });
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) recChunks.push(e.data); };
+    recorder.onstop = () => {
+      btnRecord.classList.remove('recording');
+      btnRecord.textContent = '⏺ 录制演示视频';
+      const blob = new Blob(recChunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'car_welcome_fan_door_arc.webm'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    };
+    recorder.start();
+    btnRecord.classList.add('recording');
+    btnRecord.textContent = '⏹ 停止并保存 WebM';
+    triggerWelcome();
+  };
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); triggerWelcome(); }
+    if (e.key === 'h' || e.key === 'H') toggleClean();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Ignore raw Dreamina download duplicates & local measurement debug sheets
+car_closed/
+car_open/
+car_video/
+door_measure_grid.png
+door_arc_verify.png
+car_door_preview.png
+assets/car_ref.png
+assets/fan_combined_semi_alpha.png
+split_fan_layers.py
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
