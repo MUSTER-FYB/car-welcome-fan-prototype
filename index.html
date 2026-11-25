@@ -172,20 +172,20 @@
           <input type="range" id="rngRadius" min="80" max="145" value="104" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">52%</span></div>
-          <input type="range" id="rngWhiteOp" min="0" max="100" value="52" />
+          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">36%</span></div>
+          <input type="range" id="rngWhiteOp" min="0" max="100" value="36" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">100%</span></div>
-          <input type="range" id="rngGoldOp" min="0" max="100" value="100" />
+          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">88%</span></div>
+          <input type="range" id="rngGoldOp" min="0" max="100" value="88" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>浮光跃金流速</span><span id="valGoldSpeed">1.2x</span></div>
           <input type="range" id="rngGoldSpeed" min="0" max="250" value="120" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">110%</span></div>
-          <input type="range" id="rngGlow" min="0" max="180" value="110" />
+          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">76%</span></div>
+          <input type="range" id="rngGlow" min="0" max="180" value="76" />
         </div>
 
         <h2>迎宾时序节奏</h2>
@@ -280,10 +280,10 @@
     mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
     phaseTime: 0.0,
     fanRadius: 1.04,   // 1.0 = exact door length arc, 1.04 = grand rounded arc staying 100% inside 16:9 frame
-    whiteOp: 0.52,
-    goldOp: 1.00,
+    whiteOp: 0.36,
+    goldOp: 0.88,
     goldSpeed: 1.2,
-    glow: 1.10,
+    glow: 0.76,
     openDur: 2.0,
     holdDur: 1.0,
     fadeDur: 1.8,
@@ -308,8 +308,8 @@
   const rngDoor = document.getElementById('rngDoor');
   const valDoorAngle = document.getElementById('valDoorAngle');
 
-  // Preload scrubbable all-intra MP4 into memory Blob URL for zero-lag 60fps door seeking
-  fetch('assets/car_door_open_scrub.mp4')
+      // Preload scrubbable all-intra MP4 into memory Blob URL for zero-lag 60fps door seeking
+  fetch('assets/car_door_open_scrub.mp4?v=6')
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
     .then(blob => {
       video.src = URL.createObjectURL(blob);
@@ -469,21 +469,22 @@
       if (sectorMask <= 0.002) discard;
 
       // Smooth axis-free inner fade (no fan handle/rivet, light radiates cleanly from under the door hinge!)
-      float innerFade = smoothstep(0.07 * uFanRadius, 0.21 * uFanRadius, rFloor);
+      float innerFade = smoothstep(0.07 * uFanRadius, 0.22 * uFanRadius, rFloor);
 
-      // Gentle, rounded, silky outer arc aligned to the car door's opening arc (NO sharp spiky sawtooth!)
+      // Distinctive yet gracefully ROUNDED folding-fan petal silhouette along the door-opening arc!
+      // 8 plump rounded cloud-fan petals (~5.8% depth): clearly pleated fan shape, zero spiky sharpness!
       float normA = clamp(ang / curAng, 0.0, 1.0);
-      // Ultra-soft rounded petal wave (only 0.9% amplitude, smooth cosine curve, zero sharp corners)
-      float softWave = 1.0 - 0.009 * (0.5 - 0.5 * cos(normA * 3.14159265 * 14.0));
-      float arcLimit = uFanRadius * softWave;
-      float outerMask = 1.0 - smoothstep(arcLimit * 0.945, arcLimit * 1.005, rFloor);
+      float petalPhase = abs(sin(normA * 3.14159265 * 8.0));
+      // pow(sin, 0.58) creates smooth broad rounded domes with gentle defined valleys (never sharp needles!)
+      float roundedLobe = pow(petalPhase, 0.58);
+      float arcLimit = uFanRadius * (0.935 + 0.065 * roundedLobe);
+      float outerMask = 1.0 - smoothstep(arcLimit * 0.968, arcLimit * 1.005, rFloor);
       float geoMask = sectorMask * innerFade * outerMask;
       if (geoMask <= 0.002) discard;
 
       // 2. Map metric floor polar sector (rFloor, ang) -> canonical 2K axis-free fan texture UV
-      //    Use graceful central ~132 deg span (-1.15..+1.15 rad) so pleats & gold veins stay lush and un-pinched!
-      //    Stop sampling at texR = 0.745 (below the deep jagged sawtooth valleys) so the outer edge is a
-      //    pure, smooth, softly-feathered circular arc matching the car door's exact sweep!
+      //    Graceful central span (-1.15..+1.15 rad) so pleats & gold veins stay lush and un-pinched.
+      //    Sample cleanly inside the dot ring (texR up to 0.675) while the rounded petal contour defines the edge!
       float texAng = mix(-1.15, 1.15, normA);
 
       float normR = clamp((rFloor / arcLimit - 0.07) / 0.93, 0.0, 1.0);
@@ -500,9 +501,9 @@
       vec4 wTex = texture2D(uWhiteTex, sampleUV);
       vec4 gTex = texture2D(uGoldTex, sampleUV);
 
-      // Subtle golden reveal slightly trailing the frosted white opening
-      float whiteFadeIn = smoothstep(0.0, 0.14, uDoor);
-      float goldReveal = smoothstep(0.08, 0.78, uDoor);
+      // Gentle, non-glaring progressive emergence as the door swings open (never pops abruptly!)
+      float whiteFadeIn = pow(smoothstep(0.02, 0.68, uDoor), 1.25);
+      float goldReveal  = pow(smoothstep(0.12, 0.88, uDoor), 1.15);
 
       // Poetic mist & golden-dust dissolve during Stage 3
       float n1 = noise(sampleUV * 9.0 + vec2(0.0, -uTime * 0.25));
@@ -511,43 +512,45 @@
       float dissolveMask = 1.0 - smoothstep(uDissolve * 1.25 - 0.28, uDissolve * 1.25 + 0.05, dissolveField);
       float lifeAlpha = uVisibility * mix(1.0, dissolveMask, smoothstep(0.0, 0.15, uDissolve));
 
-      // === 浮光跃金: High-contrast flowing molten-gold specular light strictly inside golden veins ===
+      // === 浮光跃金: Refined flowing molten-gold light strictly inside golden veins (visible yet never harsh) ===
       float t = uTime * uGoldSpeed;
-      // 1) Primary radial molten-gold wave gliding smoothly from hinge outward along the curved veins
+      // 1) Primary radial molten-gold wave gliding smoothly from hinge outward along curved veins
       float radialFlow = sin(normR * 10.5 - t * 3.1 + texAng * 1.8 + n1 * 2.2) * 0.5 + 0.5;
-      float radialCrest = pow(radialFlow, 2.6);
+      float radialCrest = pow(radialFlow, 2.8);
 
       // 2) Broad luxury diagonal specular light sweep gliding gracefully across the golden fan
       float sweepPos = fract(t * 0.34);
       float sweepCoord = normA * 0.72 + normR * 0.42 - sweepPos * 1.45 + 0.22;
       float diagSweep = exp(-pow(sweepCoord * 4.2, 2.0));
 
-      // 3) Secondary fine ripple + sparkling champagne starlight glints ("跃金")
-      float fineRipple = pow(sin(normR * 19.0 - t * 2.3 - texAng * 3.6 + n2 * 2.8) * 0.5 + 0.5, 3.8);
+      // 3) Secondary fine ripple + subtle champagne micro-glints ("跃金")
+      float fineRipple = pow(sin(normR * 19.0 - t * 2.3 - texAng * 3.6 + n2 * 2.8) * 0.5 + 0.5, 4.0);
       float glintNoise = noise(sampleUV * 72.0 + vec2(t * 0.55, -t * 0.85));
-      float glint = pow(glintNoise, 7.5) * 4.2 * (0.28 + 0.72 * max(radialCrest, diagSweep));
+      float glint = pow(glintNoise, 8.2) * 3.2 * (0.28 + 0.72 * max(radialCrest, diagSweep));
 
-      float flowEnergy = clamp(radialCrest * 0.85 + diagSweep * 1.15 + fineRipple * 0.45, 0.0, 1.8);
+      float flowEnergy = clamp(radialCrest * 0.82 + diagSweep * 1.05 + fineRipple * 0.40, 0.0, 1.5);
 
-      // Semi-transparent pearl-white frosted fan layer (subtle warm catch-light as golden wave sweeps past)
+      // Soft pleat luminance contour matching the 8 rounded fan petals (adds graceful silk fold depth)
+      float pleatShade = 0.88 + 0.14 * roundedLobe;
+
+      // Semi-transparent pearl-white frosted fan layer (soft, restrained, non-glaring)
       float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * geoMask * lifeAlpha;
-      vec3 wColor = wTex.rgb * (1.02 + 0.14 * (radialCrest * 0.5 + diagSweep * 0.7) * uGlow);
+      vec3 wColor = wTex.rgb * pleatShade * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow);
 
-      // 100% opaque flowing champagne-gold veins:
-      // Deepen resting antique-gold slightly so traveling molten-gold crests pop with unmistakable luxury contrast!
+      // Refined flowing champagne-gold veins (clear moving contrast, capped smoothly so never glaring!)
       float gAlpha = gTex.a * uGoldOp * goldReveal * geoMask * lifeAlpha;
-      vec3 goldResting = gTex.rgb * vec3(0.84, 0.75, 0.58);
-      vec3 goldMolten = vec3(1.0, 0.90, 0.62) * (radialCrest * 0.72 + fineRipple * 0.38) * uGlow;
-      vec3 goldSpecWhite = vec3(1.0, 0.98, 0.88) * (diagSweep * 0.88 + glint * 0.65) * uGlow;
-      vec3 gColor = clamp(goldResting + goldMolten + goldSpecWhite, 0.0, 1.65);
+      vec3 goldResting = gTex.rgb * vec3(0.76, 0.67, 0.50);
+      vec3 goldMolten = vec3(1.0, 0.88, 0.58) * (radialCrest * 0.58 + fineRipple * 0.30) * uGlow;
+      vec3 goldSpecWhite = vec3(1.0, 0.96, 0.84) * (diagSweep * 0.68 + glint * 0.48) * uGlow;
+      vec3 gColor = clamp(goldResting + goldMolten + goldSpecWhite, 0.0, 1.24);
 
-      // Warm luminous golden bloom halo pulsing with the traveling flow on the dark garage floor
-      float auraMask = smoothstep(0.02, 0.50, gTex.a + wTex.a * 0.22) * geoMask * lifeAlpha;
-      vec3 auraColor = vec3(1.0, 0.84, 0.48) * (0.14 + 0.30 * flowEnergy) * uGlow * goldReveal;
+      // Restrained warm floor bounce halo
+      float auraMask = smoothstep(0.03, 0.52, gTex.a + wTex.a * 0.18) * geoMask * lifeAlpha;
+      vec3 auraColor = vec3(0.98, 0.82, 0.46) * (0.10 + 0.22 * flowEnergy) * uGlow * goldReveal;
 
-      // Composite opaque gold cleanly over semi-transparent frosted white
+      // Composite gold cleanly over soft semi-transparent frosted white
       float outAlpha = gAlpha + wAlpha * (1.0 - gAlpha);
-      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.34;
+      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.26;
 
       // Lingering golden starlight dust during dissolve
       if (uDissolve > 0.05 && uDissolve < 0.98) {

@@ -8,6 +8,8 @@ car_door_preview.png
 assets/car_ref.png
 assets/fan_combined_semi_alpha.png
 split_fan_layers.py
+remove_white_lines.py
+lines_removed_check.png
 __pycache__/
 *.pyc
 .DS_Store
