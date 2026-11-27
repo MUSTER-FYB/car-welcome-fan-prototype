@@ -142,9 +142,9 @@
 <body>
   <div class="app">
     <div class="stage-wrap" id="stageWrap">
-      <img id="fallbackClosed" src="assets/car_closed.png" alt="" />
-      <img id="fallbackOpen" src="assets/car_open.png" alt="" style="opacity:0;" />
       <video id="carVideo" muted playsinline preload="auto"></video>
+      <img id="fallbackClosed" src="assets/car_closed.png?v=7" alt="" style="opacity:1;" />
+      <img id="fallbackOpen" src="assets/car_open.png?v=7" alt="" style="opacity:0;" />
       <canvas id="glCanvas"></canvas>
       <canvas id="fxCanvas"></canvas>
       <canvas id="calibCanvas"></canvas>
@@ -308,23 +308,21 @@
   const rngDoor = document.getElementById('rngDoor');
   const valDoorAngle = document.getElementById('valDoorAngle');
 
-      // Preload scrubbable all-intra MP4 into memory Blob URL for zero-lag 60fps door seeking
-  fetch('assets/car_door_open_scrub.mp4?v=6')
+  // Preload scrubbable all-intra MP4 into memory Blob URL for zero-lag 60fps door seeking
+  fetch('assets/car_door_open_scrub.mp4?v=7')
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
     .then(blob => {
       video.src = URL.createObjectURL(blob);
       video.load();
     })
     .catch(() => {
-      video.src = 'assets/car_door_open_scrub.mp4';
+      video.src = 'assets/car_door_open_scrub.mp4?v=7';
       video.load();
     });
 
   video.addEventListener('loadedmetadata', () => {
     state.videoReady = true;
     state.videoDuration = Math.max(0.1, video.duration - 0.05);
-    fallbackClosed.style.display = 'none';
-    fallbackOpen.style.display = 'none';
     video.pause();
     video.currentTime = state.door * state.videoDuration;
   });
@@ -399,8 +397,10 @@
     return { x: x / w, y: y / w };
   }
 
-  // === WebGL Metric Polar Fan Renderer ===
-  const gl = glCanvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true });
+  // === WebGL2 / WebGL Metric Polar Fan Renderer (with Mipmaps to eliminate narrow-angle aliasing streaks!) ===
+  const glOpts = { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true };
+  const gl = glCanvas.getContext('webgl2', glOpts) || glCanvas.getContext('webgl', glOpts);
+  const isWebGL2 = (typeof WebGL2RenderingContext !== 'undefined') && (gl instanceof WebGL2RenderingContext);
 
   const VS = `
     attribute vec2 aPos;
@@ -483,9 +483,11 @@
       if (geoMask <= 0.002) discard;
 
       // 2. Map metric floor polar sector (rFloor, ang) -> canonical 2K axis-free fan texture UV
-      //    Graceful central span (-1.15..+1.15 rad) so pleats & gold veins stay lush and un-pinched.
-      //    Sample cleanly inside the dot ring (texR up to 0.675) while the rounded petal contour defines the edge!
-      float texAng = mix(-1.15, 1.15, normA);
+      //    Prevent extreme angular compression when door just cracks open (avoids dense radial streak aliasing!):
+      //    Below ~22 deg, combine gentle pleat unfolding with smooth angular reveal so ribs never crush into needles.
+      float unfoldSpan = max(curAng, 0.38);
+      float normA_unfold = clamp(ang / unfoldSpan, 0.0, 1.0);
+      float texAng = mix(-1.15, 1.15, normA_unfold);
 
       float normR = clamp((rFloor / arcLimit - 0.07) / 0.93, 0.0, 1.0);
       float texR = mix(0.165, 0.675, normR);
@@ -501,9 +503,13 @@
       vec4 wTex = texture2D(uWhiteTex, sampleUV);
       vec4 gTex = texture2D(uGoldTex, sampleUV);
 
+      // Unpremultiply bilinear border against black transparent pixels so ribbons NEVER show dark hairline fringes!
+      vec3 wStraight = wTex.a > 0.02 ? clamp(wTex.rgb / max(wTex.a, 0.22), 0.0, 1.0) : vec3(0.0);
+      vec3 gStraight = gTex.a > 0.02 ? clamp(gTex.rgb / max(gTex.a, 0.22), 0.0, 1.0) : vec3(0.0);
+
       // Gentle, non-glaring progressive emergence as the door swings open (never pops abruptly!)
-      float whiteFadeIn = pow(smoothstep(0.02, 0.68, uDoor), 1.25);
-      float goldReveal  = pow(smoothstep(0.12, 0.88, uDoor), 1.15);
+      float whiteFadeIn = pow(smoothstep(0.04, 0.68, uDoor), 1.30);
+      float goldReveal  = pow(smoothstep(0.14, 0.88, uDoor), 1.20);
 
       // Poetic mist & golden-dust dissolve during Stage 3
       float n1 = noise(sampleUV * 9.0 + vec2(0.0, -uTime * 0.25));
@@ -535,11 +541,11 @@
 
       // Semi-transparent pearl-white frosted fan layer (soft, restrained, non-glaring)
       float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * geoMask * lifeAlpha;
-      vec3 wColor = wTex.rgb * pleatShade * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow);
+      vec3 wColor = wStraight * pleatShade * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow);
 
       // Refined flowing champagne-gold veins (clear moving contrast, capped smoothly so never glaring!)
       float gAlpha = gTex.a * uGoldOp * goldReveal * geoMask * lifeAlpha;
-      vec3 goldResting = gTex.rgb * vec3(0.76, 0.67, 0.50);
+      vec3 goldResting = gStraight * vec3(0.78, 0.69, 0.52);
       vec3 goldMolten = vec3(1.0, 0.88, 0.58) * (radialCrest * 0.58 + fineRipple * 0.30) * uGlow;
       vec3 goldSpecWhite = vec3(1.0, 0.96, 0.84) * (diagSweep * 0.68 + glint * 0.48) * uGlow;
       vec3 gColor = clamp(goldResting + goldMolten + goldSpecWhite, 0.0, 1.24);
@@ -603,9 +609,14 @@
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      if (isWebGL2) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
     };
     img.src = url + '?v=4';
     return tex;
@@ -787,7 +798,7 @@
   });
   calibCanvas.addEventListener('pointerup', () => { dragTarget = null; });
 
-  // === Door Video Sync ===
+  // === Door Video Sync + Seamless 2K Rest-Frame Super-Sharpness ===
   let lastSeekVal = -1;
   function syncDoorVisual(p) {
     const clamped = Math.max(0, Math.min(1, p));
@@ -799,7 +810,13 @@
         video.currentTime = targetTime;
         lastSeekVal = targetTime;
       }
+      // Crossfade smoothly to razor-sharp 2K stills right at full-closed (0..0.05) and full-open (0.94..1.0)!
+      const closedAlpha = 1.0 - Math.min(1, Math.max(0, clamped / 0.05));
+      const openAlpha   = Math.min(1, Math.max(0, (clamped - 0.94) / 0.06));
+      fallbackClosed.style.opacity = closedAlpha.toFixed(3);
+      fallbackOpen.style.opacity   = openAlpha.toFixed(3);
     } else {
+      fallbackClosed.style.opacity = '1';
       fallbackOpen.style.opacity = String(clamped);
     }
   }
@@ -867,8 +884,13 @@
 
     if (recorder && recorder.state === 'recording') {
       recCtx.clearRect(0, 0, recCanvas.width, recCanvas.height);
-      if (state.videoReady) recCtx.drawImage(video, 0, 0, recCanvas.width, recCanvas.height);
-      else {
+      if (state.videoReady) {
+        recCtx.drawImage(video, 0, 0, recCanvas.width, recCanvas.height);
+        const cA = parseFloat(fallbackClosed.style.opacity || '0');
+        const oA = parseFloat(fallbackOpen.style.opacity || '0');
+        if (cA > 0.01) { recCtx.save(); recCtx.globalAlpha = cA; recCtx.drawImage(fallbackClosed, 0, 0, recCanvas.width, recCanvas.height); recCtx.restore(); }
+        if (oA > 0.01) { recCtx.save(); recCtx.globalAlpha = oA; recCtx.drawImage(fallbackOpen, 0, 0, recCanvas.width, recCanvas.height); recCtx.restore(); }
+      } else {
         recCtx.drawImage(fallbackClosed, 0, 0, recCanvas.width, recCanvas.height);
         recCtx.save(); recCtx.globalAlpha = state.door;
         recCtx.drawImage(fallbackOpen, 0, 0, recCanvas.width, recCanvas.height);

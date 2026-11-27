@@ -2,6 +2,11 @@
 car_closed/
 car_open/
 car_video/
+v2_open/
+v2_closed/
+v2_video/
+preclean_garage_open.png
+denza_n8_ref.png
 door_measure_grid.png
 door_arc_verify.png
 car_door_preview.png
