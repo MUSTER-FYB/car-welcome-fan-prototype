@@ -3,35 +3,349 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>浮光跃金 · 车门迎宾投影交互原型</title>
+  <title>腾势 N8 · 浮光跃金迎宾光毯</title>
   <style>
     :root {
-      --bg: #07090d;
-      --panel: rgba(14, 17, 24, 0.80);
-      --panel-border: rgba(232, 200, 138, 0.22);
+      --bg: #05070b;
+      --cockpit-surface: rgba(13, 16, 23, 0.92);
+      --card-bg: rgba(255, 255, 255, 0.038);
+      --card-hover: rgba(230, 198, 135, 0.09);
+      --card-active: rgba(230, 198, 135, 0.16);
+      --border: rgba(255, 255, 255, 0.085);
+      --border-gold: rgba(232, 200, 138, 0.36);
       --gold: #e6c687;
-      --gold-bright: #fff0c8;
-      --text: #eef1f6;
-      --muted: #939cad;
+      --gold-bright: #fff1cc;
+      --text: #f2f4f8;
+      --muted: #8b95a7;
     }
-    * { box-sizing: border-box; user-select: none; }
+    * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
     html, body {
       margin: 0; padding: 0; width: 100%; height: 100%;
       background: var(--bg); color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
       overflow: hidden;
     }
-    .app {
-      position: relative; width: 100vw; height: 100vh;
+
+    /* === Automotive Cockpit Infotainment Shell (车内中控大屏架构) === */
+    .cockpit {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      background:
+        radial-gradient(ellipse 80% 60% at 72% 48%, #121826 0%, #07090f 58%, #04060a 100%);
+      overflow: hidden;
+    }
+
+    /* Slim Vehicle Status Bar (44px) */
+    .status-bar {
+      flex-shrink: 0; height: 44px;
+      padding: 0 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(8, 10, 15, 0.85);
+      backdrop-filter: blur(18px);
+      z-index: 20;
+    }
+    .status-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .car-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13.5px; font-weight: 600; letter-spacing: 0.08em;
+      color: var(--gold-bright);
+    }
+    .car-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 10px var(--gold);
+    }
+    .status-sep { width: 1px; height: 13px; background: rgba(255,255,255,0.14); }
+    .phase-pill {
+      font-size: 12px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .status-right {
+      display: flex; align-items: center; gap: 16px;
+      font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+    }
+    .gear-pill {
+      padding: 2px 9px; border-radius: 6px;
+      background: rgba(230, 198, 135, 0.14);
+      border: 1px solid rgba(230, 198, 135, 0.35);
+      color: var(--gold-bright); font-weight: 600; font-size: 11px; letter-spacing: 0.05em;
+    }
+    .icon-btn {
+      appearance: none; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04); color: var(--text);
+      padding: 5px 12px; border-radius: 999px;
+      font-size: 11.5px; cursor: pointer; transition: all 0.2s ease;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .icon-btn:hover { border-color: var(--border-gold); color: var(--gold-bright); background: var(--card-hover); }
+
+    /* Main Split Cockpit Workspace: Left Control Half + Right Pure Preview Half */
+    .cockpit-main {
+      flex: 1; min-height: 0;
+      display: flex; align-items: stretch;
+      padding: 14px 18px 16px;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    /* === LEFT HALF: Driver-Ergonomic Cockpit Control Console === */
+    .left-console {
+      flex: 0 0 clamp(380px, 41vw, 510px);
+      height: 100%; min-height: 0;
+      display: flex; flex-direction: column;
+      background: var(--cockpit-surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+      backdrop-filter: blur(22px);
+      overflow: hidden;
+    }
+    .console-header {
+      flex-shrink: 0;
+      padding: 16px 18px 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .console-title { display: flex; flex-direction: column; gap: 2px; }
+    .console-title h1 {
+      margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.04em; color: var(--text);
+    }
+    .console-title span { font-size: 11px; color: var(--muted); }
+
+    /* Progressive Primary / Secondary Tab Switcher */
+    .nav-tabs {
+      display: inline-flex; gap: 3px; padding: 3px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 12px;
+    }
+    .nav-tab {
+      appearance: none; border: none; background: transparent; color: var(--muted);
+      padding: 7px 14px; border-radius: 9px;
+      font-size: 12.5px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s ease; white-space: nowrap;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active {
+      background: linear-gradient(135deg, rgba(220,184,114,0.26), rgba(245,222,168,0.14));
+      color: var(--gold-bright);
+      box-shadow: inset 0 0 0 1px rgba(230,198,135,0.42);
+    }
+
+    /* Scrollable Middle Content Area */
+    .console-body {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 18px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(230, 198, 135, 0.25) transparent;
+    }
+    .console-body::-webkit-scrollbar { width: 5px; }
+    .console-body::-webkit-scrollbar-thumb { background: rgba(230,198,135,0.22); border-radius: 999px; }
+    .drawer-pane { display: flex; flex-direction: column; gap: 18px; }
+    .drawer-pane.hidden { display: none; }
+
+    /* Clean Section Block */
+    .section { display: flex; flex-direction: column; gap: 10px; }
+    .sec-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted);
+    }
+    .sec-head em { font-style: normal; font-size: 11px; font-weight: 400; color: rgba(230,198,135,0.75); }
+
+    /* Theme Cards (2x2 Large Cockpit Touch Tiles) */
+    .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .theme-card {
+      appearance: none; border: 1px solid var(--border);
+      background: var(--card-bg); color: var(--text);
+      border-radius: 14px; padding: 14px 14px;
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; text-align: left;
+      transition: all 0.2s ease;
+    }
+    .theme-card:hover { border-color: rgba(230,198,135,0.42); background: var(--card-hover); }
+    .theme-card.active {
+      border-color: var(--gold);
+      background: linear-gradient(135deg, rgba(230,198,135,0.18), rgba(230,198,135,0.06));
+      box-shadow: 0 6px 20px rgba(230,198,135,0.12), inset 0 0 0 1px rgba(230,198,135,0.25);
+    }
+    .tc-ico {
+      width: 38px; height: 38px; flex-shrink: 0; border-radius: 11px;
+      background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .theme-card.active .tc-ico { background: rgba(230,198,135,0.20); }
+    .tc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .tc-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+    .theme-card.active .tc-title { color: var(--gold-bright); }
+    .tc-sub { font-size: 11px; color: var(--muted); }
+
+    /* Preset Chips (Compact 1-Row Quick Scenarios) */
+    .preset-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .preset-chip {
+      appearance: none; border: 1px solid var(--border);
+      background: var(--card-bg); color: var(--muted);
+      border-radius: 11px; padding: 9px 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      font-size: 11.5px; font-weight: 500; cursor: pointer; transition: all 0.2s ease;
+    }
+    .preset-chip .pc-ico { font-size: 14px; line-height: 1; }
+    .preset-chip:hover { color: var(--text); border-color: rgba(230,198,135,0.38); background: var(--card-hover); }
+    .preset-chip.active {
+      color: var(--gold-bright); border-color: var(--gold); background: var(--card-active);
+    }
+
+    /* Automotive Segmented Control */
+    .seg-bar {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+      padding: 4px; border-radius: 13px;
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid var(--border);
+    }
+    .seg-btn {
+      appearance: none; border: none; background: transparent; color: var(--muted);
+      padding: 10px 8px; border-radius: 9px;
+      font-size: 12.5px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s ease; white-space: nowrap;
+    }
+    .seg-btn:hover { color: var(--text); }
+    .seg-btn.active {
+      background: rgba(230, 198, 135, 0.20); color: var(--gold-bright);
+      box-shadow: inset 0 0 0 1px rgba(230, 198, 135, 0.42);
+    }
+
+    /* Cockpit Toggle Switch Row */
+    .toggle-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 14px; border-radius: 14px;
+      background: var(--card-bg); border: 1px solid var(--border);
+    }
+    .toggle-meta { display: flex; flex-direction: column; gap: 2px; }
+    .toggle-meta strong { font-size: 13px; font-weight: 500; color: var(--text); }
+    .toggle-meta span { font-size: 11px; color: var(--muted); }
+    .car-switch {
+      appearance: none; position: relative; flex-shrink: 0;
+      width: 44px; height: 24px; border-radius: 999px;
+      background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer; transition: all 0.22s ease; outline: none;
+    }
+    .car-switch::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #dfe4ee; transition: transform 0.22s ease, background 0.22s ease;
+    }
+    .car-switch:checked {
+      background: linear-gradient(135deg, #c9a156, #ecd298);
+      border-color: rgba(255,240,200,0.5);
+    }
+    .car-switch:checked::after { transform: translateX(20px); background: #18130a; }
+
+    /* Progressive Disclosure Accordions (<details>) in Secondary Tab */
+    details.acc {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.028);
+      border-radius: 14px; overflow: hidden;
+    }
+    details.acc > summary {
+      list-style: none; cursor: pointer;
+      padding: 13px 15px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      letter-spacing: 0.03em;
+      transition: background 0.18s ease;
+    }
+    details.acc > summary::-webkit-details-marker { display: none; }
+    details.acc > summary:hover { background: rgba(255,255,255,0.03); }
+    details.acc > summary::after {
+      content: "›"; font-size: 16px; color: var(--muted);
+      transform: rotate(90deg); transition: transform 0.2s ease;
+    }
+    details.acc:not([open]) > summary::after { transform: rotate(0deg); }
+    details.acc[open] > summary { color: var(--gold-bright); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .acc-body {
+      padding: 13px 15px 15px;
+      display: flex; flex-direction: column; gap: 13px;
+    }
+
+    /* Tactile Car Sliders */
+    .ctrl { display: flex; flex-direction: column; gap: 7px; }
+    .ctrl-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+    .ctrl-head span:last-child { color: var(--gold-bright); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .check-row {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12.5px; color: var(--text);
+    }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+      border-radius: 999px; background: rgba(255,255,255,0.14); outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 17px; height: 17px; border-radius: 50%;
+      background: var(--gold-bright); border: 2px solid #292011;
+      box-shadow: 0 0 12px rgba(230, 198, 135, 0.65);
+    }
+
+    /* Pinned Bottom Action Console inside Left Panel */
+    .console-footer {
+      flex-shrink: 0;
+      padding: 13px 18px 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(9, 12, 18, 0.92);
+      display: flex; flex-direction: column; gap: 11px;
+    }
+    .cta-row { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      appearance: none; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05); color: var(--text);
+      padding: 11px 14px; border-radius: 12px;
+      font-size: 12.5px; font-weight: 500; letter-spacing: 0.03em;
+      cursor: pointer; transition: all 0.2s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--border-gold); color: var(--gold-bright); background: var(--card-hover); }
+    .btn.primary {
+      flex: 1;
+      background: linear-gradient(135deg, #d7b16a 0%, #f3dcab 52%, #c69c52 100%);
+      color: #161108; border-color: transparent; font-weight: 600; font-size: 13.5px;
+      box-shadow: 0 6px 22px rgba(230, 198, 135, 0.28);
+    }
+    .btn.primary:hover { filter: brightness(1.06); transform: translateY(-1px); color: #161108; }
+    .btn.active { border-color: var(--gold); background: rgba(230, 198, 135, 0.20); color: var(--gold-bright); }
+    .btn.sm { padding: 8px 10px; font-size: 11.5px; border-radius: 10px; }
+    .door-scrub {
+      display: flex; align-items: center; gap: 10px;
+      padding: 2px 2px 0;
+    }
+    .door-scrub-label { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+    .door-scrub-val {
+      font-size: 12px; font-weight: 600; color: var(--gold);
+      font-variant-numeric: tabular-nums; min-width: 34px; text-align: right;
+    }
+    .eng-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .eng-grid .span-2 { grid-column: span 2; }
+    .hint {
+      font-size: 11px; color: var(--muted); line-height: 1.55;
+      background: rgba(255,255,255,0.035); padding: 9px 11px; border-radius: 10px;
+    }
+
+    /* === RIGHT HALF: Pure Unobstructed 3D Live Vehicle Preview === */
+    .preview-half {
+      flex: 1; min-width: 0; min-height: 0;
       display: flex; align-items: center; justify-content: center;
-      background: radial-gradient(circle at 50% 45%, #121722 0%, #06080c 72%);
+      position: relative;
+      container-type: size;
+      overflow: hidden;
     }
     .stage-wrap {
       position: relative;
-      width: min(100vw, calc(100vh * 16 / 9));
-      height: min(100vh, calc(100vw * 9 / 16));
+      width: min(100cqw, calc(100cqh * 16 / 9));
+      height: min(100cqh, calc(100cqw * 9 / 16));
       background: #000;
-      box-shadow: 0 30px 90px rgba(0,0,0,0.85);
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.78);
       overflow: hidden;
     }
     #carVideo, #fallbackClosed, #fallbackOpen, #glCanvas, #fxCanvas, #calibCanvas {
@@ -40,362 +354,261 @@
     }
     #fallbackClosed, #fallbackOpen, #glCanvas, #fxCanvas, #calibCanvas { pointer-events: none; }
     #calibCanvas.active { pointer-events: auto; cursor: crosshair; }
-
-    .topbar {
-      position: absolute; top: 18px; left: 22px; right: 22px;
-      display: flex; align-items: center; justify-content: space-between;
-      z-index: 20; pointer-events: none;
-      transition: opacity 0.35s ease;
-    }
-    .brand {
-      pointer-events: auto;
-      display: flex; align-items: center; gap: 12px;
-      padding: 9px 16px; border-radius: 999px;
-      background: var(--panel); backdrop-filter: blur(14px);
-      border: 1px solid var(--panel-border);
-    }
-    .brand-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--gold); box-shadow: 0 0 12px var(--gold);
-    }
-    .brand h1 {
-      margin: 0; font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
-      color: var(--gold-bright);
-    }
-    .phase-pill {
-      font-size: 11px; color: var(--muted);
-      padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.12);
-    }
-    .top-actions { pointer-events: auto; display: flex; gap: 8px; }
-    .btn {
-      appearance: none; border: 1px solid var(--panel-border);
-      background: var(--panel); color: var(--text);
-      backdrop-filter: blur(14px);
-      padding: 8px 14px; border-radius: 999px;
-      font-size: 12px; font-weight: 500; letter-spacing: 0.03em;
-      cursor: pointer; transition: all 0.2s ease;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .btn:hover { border-color: var(--gold); color: var(--gold-bright); background: rgba(28, 32, 44, 0.9); }
-    .btn.primary {
-      background: linear-gradient(135deg, #d7b16a 0%, #f1d9a4 50%, #c69c52 100%);
-      color: #16120b; border-color: transparent; font-weight: 600;
-      box-shadow: 0 4px 20px rgba(230, 198, 135, 0.30);
-    }
-    .btn.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
-    .btn.active { border-color: var(--gold); background: rgba(230, 198, 135, 0.18); color: var(--gold-bright); }
-    .btn.recording { border-color: #ff6b6b; background: rgba(255, 80, 80, 0.22); color: #ffd4d4; }
-
-    .dock {
-      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-      z-index: 20; width: min(820px, calc(100% - 40px));
-      padding: 10px 16px; border-radius: 16px;
-      background: rgba(14, 17, 24, 0.78); backdrop-filter: blur(16px);
-      border: 1px solid var(--panel-border);
-      display: flex; flex-direction: column; gap: 9px;
-      transition: opacity 0.35s ease;
-    }
-    .dock-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .mode-bar {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
-      flex-wrap: wrap;
-    }
-    .seg-group {
-      display: inline-flex; align-items: center; gap: 3px;
-      background: rgba(255,255,255,0.05); padding: 3px; border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-    .seg-label {
-      font-size: 11px; color: var(--muted); padding: 0 8px 0 6px; white-space: nowrap;
-    }
-    .seg-btn {
-      appearance: none; border: none; background: transparent; color: var(--muted);
-      padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
-      cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
-    }
-    .seg-btn:hover { color: var(--text); }
-    .seg-btn.active {
-      background: linear-gradient(135deg, rgba(215,177,106,0.28), rgba(241,217,164,0.18));
-      color: var(--gold-bright);
-      box-shadow: inset 0 0 0 1px rgba(230,198,135,0.45);
-    }
-    .drawer-tabs {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
-      background: rgba(255,255,255,0.05); padding: 3px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-    .drawer-tab {
-      appearance: none; border: none; background: transparent; color: var(--muted);
-      padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 500;
-      cursor: pointer; transition: all 0.2s ease;
-    }
-    .drawer-tab:hover { color: var(--text); }
-    .drawer-tab.active {
-      background: rgba(230, 198, 135, 0.20); color: var(--gold-bright);
-      box-shadow: inset 0 0 0 1px rgba(230, 198, 135, 0.40);
-    }
-    .drawer-pane { display: flex; flex-direction: column; gap: 11px; }
-    .drawer-pane.hidden { display: none; }
-    .mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .mode-card {
-      appearance: none; border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.03); color: var(--muted);
-      border-radius: 10px; padding: 8px 6px; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      transition: all 0.2s ease; text-align: center;
-    }
-    .mode-card .mc-ico { font-size: 15px; line-height: 1.1; }
-    .mode-card .mc-title { font-size: 11.5px; font-weight: 600; color: var(--text); }
-    .mode-card .mc-sub { font-size: 10px; color: var(--muted); }
-    .mode-card:hover { border-color: rgba(230,198,135,0.45); background: rgba(230,198,135,0.08); }
-    .mode-card.active {
-      border-color: var(--gold); background: rgba(230,198,135,0.16);
-      box-shadow: 0 0 14px rgba(230,198,135,0.18);
-    }
-    .mode-card.active .mc-title { color: var(--gold-bright); }
     .stage-wrap.step-ready { cursor: pointer; }
-    .slider-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
-    .slider-label { font-size: 12px; color: var(--muted); white-space: nowrap; min-width: 84px; }
-    .slider-val { font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
-    input[type="range"] {
-      -webkit-appearance: none; appearance: none; flex: 1; height: 4px;
-      border-radius: 999px; background: rgba(255,255,255,0.16); outline: none; cursor: pointer;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; appearance: none;
-      width: 14px; height: 14px; border-radius: 50%;
-      background: var(--gold-bright); border: 2px solid #2a2112;
-      box-shadow: 0 0 10px rgba(230, 198, 135, 0.7);
+
+    .stage-pill {
+      position: absolute; right: 14px; bottom: 14px; z-index: 10;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(8, 10, 16, 0.68); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      font-size: 11px; color: rgba(242, 244, 248, 0.78);
+      pointer-events: none; letter-spacing: 0.03em;
     }
 
-    .drawer {
-      position: absolute; top: 68px; right: 22px; width: 296px;
-      max-height: calc(100% - 160px); overflow-y: auto;
-      padding: 14px 16px; border-radius: 16px;
-      background: var(--panel); backdrop-filter: blur(16px);
-      border: 1px solid var(--panel-border);
-      z-index: 20; display: flex; flex-direction: column; gap: 11px;
-      transition: opacity 0.3s ease, transform 0.3s ease;
+    /* Fullscreen Clean Showcase Mode (H) */
+    body.clean-ui .status-bar, body.clean-ui .left-console, body.clean-ui .stage-pill { display: none !important; }
+    body.clean-ui .cockpit-main { padding: 0; gap: 0; }
+    body.clean-ui .stage-wrap { border-radius: 0; border: none; }
+    .clean-exit {
+      position: fixed; top: 16px; right: 18px; z-index: 30;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+      border-radius: 999px; padding: 8px 15px;
+      background: rgba(10, 12, 18, 0.78); backdrop-filter: blur(14px);
     }
-    .drawer.hidden { opacity: 0; pointer-events: none; transform: translateX(16px); }
-    .drawer h2 {
-      margin: 0; font-size: 12px; color: var(--gold); letter-spacing: 0.08em;
-      border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;
-    }
-    .ctrl { display: flex; flex-direction: column; gap: 5px; }
-    .ctrl-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-    .ctrl-head span:last-child { color: var(--gold-bright); font-variant-numeric: tabular-nums; }
-    .check-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text); }
-    .hint {
-      font-size: 11px; color: var(--muted); line-height: 1.5;
-      background: rgba(255,255,255,0.04); padding: 8px 10px; border-radius: 8px;
-    }
-
-    body.clean-ui .topbar, body.clean-ui .dock, body.clean-ui .drawer { opacity: 0; pointer-events: none; }
-    .clean-exit { position: absolute; top: 14px; right: 14px; z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-    body.clean-ui .clean-exit { opacity: 0.45; pointer-events: auto; }
+    body.clean-ui .clean-exit { opacity: 0.55; pointer-events: auto; }
     body.clean-ui .clean-exit:hover { opacity: 1; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="stage-wrap" id="stageWrap">
-      <video id="carVideo" muted playsinline preload="auto"></video>
-      <img id="fallbackClosed" src="assets/car_closed.png?v=9" alt="" style="opacity:1;" />
-      <img id="fallbackOpen" src="assets/car_open.png?v=9" alt="" style="opacity:0;" />
-      <canvas id="glCanvas"></canvas>
-      <canvas id="fxCanvas"></canvas>
-      <canvas id="calibCanvas"></canvas>
-
-      <div class="topbar">
-        <div class="brand">
-          <div class="brand-dot"></div>
-          <h1>浮光跃金 · 车门迎宾投影交互原型</h1>
-          <span class="phase-pill" id="phaseText">待机 · 车门已关闭</span>
-        </div>
-        <div class="top-actions">
-          <button class="btn" id="btnCalib">🎯 拖拽校准车门弧线</button>
-          <button class="btn" id="btnRecord">⏺ 录制演示视频</button>
-          <button class="btn active" id="btnDrawer">✦ 迎宾模式 & 参数</button>
-          <button class="btn" id="btnClean">⛶ 纯净演示 (H)</button>
-        </div>
+  <div class="cockpit">
+    <!-- Minimalist Automotive Cockpit Status Bar -->
+    <header class="status-bar">
+      <div class="status-left">
+        <div class="car-badge"><span class="car-dot"></span>腾势 N8 · 迎宾光毯</div>
+        <span class="status-sep"></span>
+        <span class="phase-pill" id="phaseText">待机 · 车门已关闭</span>
       </div>
-
-      <button class="btn clean-exit" id="btnExitClean">退出纯净演示 (H)</button>
-
-      <div class="drawer" id="drawer">
-        <div class="drawer-tabs">
-          <button class="drawer-tab active" id="tabMode">✦ 迎宾模式</button>
-          <button class="drawer-tab" id="tabParams">⚙ 光学参数</button>
-        </div>
-
-        <div class="drawer-pane" id="paneMode">
-          <h2>场景模式选择</h2>
-          <div class="mode-cards">
-            <button class="mode-card active" data-scene="welcome">
-              <span class="mc-ico">✨</span>
-              <span class="mc-title">开门迎宾</span>
-              <span class="mc-sub">展扇流金</span>
-            </button>
-            <button class="mode-card" data-scene="farewell">
-              <span class="mc-ico">🌙</span>
-              <span class="mc-title">离车告别</span>
-              <span class="mc-sub">反向收扇</span>
-            </button>
-            <button class="mode-card" data-scene="showcase">
-              <span class="mc-ico">✦</span>
-              <span class="mc-title">常亮赏析</span>
-              <span class="mc-sub">随时踩踏</span>
-            </button>
-          </div>
-
-          <h2>落脚涟漪 · 流金激发</h2>
-          <div class="check-row">
-            <span>启用扇面踩踏交互（点击/划过）</span>
-            <input type="checkbox" id="chkRipple" checked />
-          </div>
-          <div class="ctrl">
-            <div class="ctrl-head"><span>水波涟漪折射强度</span><span id="valRippleAmp">100%</span></div>
-            <input type="range" id="rngRippleAmp" min="20" max="180" value="100" />
-          </div>
-          <div class="ctrl">
-            <div class="ctrl-head"><span>流金脉络激发亮度</span><span id="valRippleExcite">115%</span></div>
-            <input type="range" id="rngRippleExcite" min="20" max="200" value="115" />
-          </div>
-          <button class="btn" id="btnSimStepDrawer" style="justify-content:center;">👣 在扇面中心模拟落脚</button>
-
-          <h2>离车告别 · 反向收扇</h2>
-          <div class="check-row">
-            <span>收扇前自动触发告别落脚涟漪</span>
-            <input type="checkbox" id="chkFarewellStep" checked />
-          </div>
-          <div class="ctrl">
-            <div class="ctrl-head"><span>反向收扇关门时长</span><span id="valFarewellDur">2.0 s</span></div>
-            <input type="range" id="rngFarewellDur" min="10" max="40" value="20" />
-          </div>
-
-          <h2>天气自适应</h2>
-          <div class="mode-cards">
-            <button class="mode-card active" data-weather="clear">
-              <span class="mc-ico">✨</span>
-              <span class="mc-title">晴夜标准</span>
-              <span class="mc-sub">经典流金</span>
-            </button>
-            <button class="mode-card" data-weather="rain">
-              <span class="mc-ico">🌧</span>
-              <span class="mc-title">雨夜水波</span>
-              <span class="mc-sub">雨点微澜</span>
-            </button>
-            <button class="mode-card" data-weather="snow">
-              <span class="mc-ico">❄</span>
-              <span class="mc-title">霜雪星尘</span>
-              <span class="mc-sub">冰晶微光</span>
-            </button>
-          </div>
-          <div class="ctrl">
-            <div class="ctrl-head"><span>天气粒子与地面质感强度</span><span id="valWeatherInt">100%</span></div>
-            <input type="range" id="rngWeatherInt" min="20" max="160" value="100" />
-          </div>
-
-          <div class="hint">
-            <b>踩踏演示</b>：在扇面展开或常亮时，直接用鼠标<b>点击或划过地面扇面</b>即可触发真实 3D 透视水波涟漪与流金脉络激发！
-          </div>
-        </div>
-
-        <div class="drawer-pane hidden" id="paneParams">
-        <h2>扇面尺寸与无轴边缘</h2>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>扇面放大倍率（沿车门圆弧）</span><span id="valRadius">1.08x</span></div>
-          <input type="range" id="rngRadius" min="80" max="145" value="108" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">36%</span></div>
-          <input type="range" id="rngWhiteOp" min="0" max="100" value="36" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">90%</span></div>
-          <input type="range" id="rngGoldOp" min="0" max="100" value="90" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>浮光跃金流速</span><span id="valGoldSpeed">1.2x</span></div>
-          <input type="range" id="rngGoldSpeed" min="0" max="250" value="120" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">78%</span></div>
-          <input type="range" id="rngGlow" min="0" max="180" value="78" />
-        </div>
-
-        <h2>迎宾时序节奏</h2>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>开门展开时长</span><span id="valOpenDur">1.6 s</span></div>
-          <input type="range" id="rngOpenDur" min="10" max="40" value="16" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">提前 0.1 s</span></div>
-          <input type="range" id="rngBloomDelay" min="-5" max="20" value="-1" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>转轴光波扩散速度</span><span id="valBloomSpeed">0.5x (1.40s)</span></div>
-          <input type="range" id="rngBloomSpeed" min="30" max="300" value="50" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>全开渐亮与流金驻留</span><span id="valHoldDur">2.3 s</span></div>
-          <input type="range" id="rngHoldDur" min="10" max="80" value="23" />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>缓缓消散时长</span><span id="valFadeDur">1.8 s</span></div>
-          <input type="range" id="rngFadeDur" min="5" max="40" value="18" />
-        </div>
-
-        <h2>投影仪光学效果</h2>
-        <div class="check-row">
-          <span>显示主驾方形投影仪微光束</span>
-          <input type="checkbox" id="chkBeam" checked />
-        </div>
-        <div class="ctrl">
-          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">42%</span></div>
-          <input type="range" id="rngBeamOp" min="0" max="100" value="42" />
-        </div>
-
-        <div class="hint">
-          已按真实地平面三维圆弧标定：扇柄圆轴已去除，两条直线边严格贴合<b>车身门槛</b>与<b>车门底边</b>，外弧线贴合<b>车门开启圆弧</b>。参数调整会自动本地保存，按 <b>H</b> 可切换纯净演示！
-        </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button class="btn" id="btnResetArc" style="flex:1; justify-content:center;">重置车门弧线</button>
-          <button class="btn" id="btnCopyAE" style="flex:1; justify-content:center;">复制校准坐标</button>
-          <button class="btn" id="btnResetParams" style="flex:1 1 100%; justify-content:center;">恢复已保存默认参数</button>
-        </div>
-        </div>
+      <div class="status-right">
+        <span class="gear-pill">P 驻车</span>
+        <span>22°C</span>
+        <span>86%</span>
+        <span id="cockpitClock">17:15</span>
+        <button class="icon-btn" id="btnClean">⛶ 全屏预览</button>
       </div>
+    </header>
 
-      <div class="dock">
-        <div class="mode-bar">
-          <div class="seg-group" id="dockSceneGroup">
-            <span class="seg-label">迎宾模式</span>
-            <button class="seg-btn active" data-scene="welcome">✨ 开门迎宾</button>
-            <button class="seg-btn" data-scene="farewell">🌙 离车告别</button>
-            <button class="seg-btn" data-scene="showcase">✦ 常亮赏析</button>
+    <!-- Main Automotive Split Screen: Left Control Console + Right Live Car Stage -->
+    <main class="cockpit-main">
+      <!-- LEFT HALF: Progressive Automotive Control Console -->
+      <aside class="left-console" id="drawer">
+        <div class="console-header">
+          <div class="console-title">
+            <h1>迎宾光毯设置</h1>
+            <span>主驾投影仪 · 实时联动</span>
           </div>
-          <div class="seg-group" id="dockWeatherGroup">
-            <span class="seg-label">天气自适应</span>
-            <button class="seg-btn active" data-weather="clear">晴夜</button>
-            <button class="seg-btn" data-weather="rain">🌧 雨夜</button>
-            <button class="seg-btn" data-weather="snow">❄ 霜雪</button>
+          <div class="nav-tabs" role="tablist">
+            <button class="nav-tab active" id="tabMode" role="tab">主题场景</button>
+            <button class="nav-tab" id="tabParams" role="tab">精细调节</button>
           </div>
         </div>
-        <div class="dock-row">
-          <button class="btn primary" id="btnPlayWelcome">▶ 模拟解锁开门迎宾</button>
-          <button class="btn" id="btnSimStep">👣 模拟落脚</button>
-          <button class="btn" id="btnCloseDoor">↺ 复位</button>
-          <div class="slider-wrap">
-            <span class="slider-label">车门开合角度</span>
+
+        <div class="console-body">
+          <!-- LAYER 1: Clean Primary Car Owner Controls (Zero Redundancy) -->
+          <div class="drawer-pane" id="paneMode">
+            <div class="section">
+              <div class="sec-head"><span>光毯主题</span><em>实时切换</em></div>
+              <div class="theme-grid">
+                <button class="theme-card active" data-theme="fan">
+                  <span class="tc-ico">🪭</span>
+                  <span class="tc-info"><span class="tc-title">浮光折扇</span><span class="tc-sub">白纱流金 · 经典</span></span>
+                </button>
+                <button class="theme-card" data-theme="feather">
+                  <span class="tc-ico">🪶</span>
+                  <span class="tc-info"><span class="tc-title">轻羽流光</span><span class="tc-sub">飘逸光羽 · 柔光</span></span>
+                </button>
+                <button class="theme-card" data-theme="water">
+                  <span class="tc-ico">🌊</span>
+                  <span class="tc-info"><span class="tc-title">月影水面</span><span class="tc-sub">清透水波 · 倒影</span></span>
+                </button>
+                <button class="theme-card" data-theme="mist">
+                  <span class="tc-ico">🌫</span>
+                  <span class="tc-info"><span class="tc-title">仙雾流岚</span><span class="tc-sub">云雾踏散 · 缥缈</span></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="sec-head"><span>一键情景预设</span><em>自动联动主题与天气</em></div>
+              <div class="preset-row">
+                <button class="preset-chip active" data-preset="business"><span class="pc-ico">🌃</span><span>商务夜归</span></button>
+                <button class="preset-chip" data-preset="date"><span class="pc-ico">🕊</span><span>浪漫约会</span></button>
+                <button class="preset-chip" data-preset="rainy"><span class="pc-ico">🌧</span><span>静谧雨夜</span></button>
+                <button class="preset-chip" data-preset="camp"><span class="pc-ico">🏔</span><span>山野露营</span></button>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="sec-head"><span>迎宾交互模式</span></div>
+              <div class="seg-bar">
+                <button class="seg-btn active" data-scene="welcome">✨ 开门迎宾</button>
+                <button class="seg-btn" data-scene="farewell">🌙 离车告别</button>
+                <button class="seg-btn" data-scene="showcase">✦ 常亮赏析</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="sec-head"><span>环境天气自适应</span></div>
+              <div class="seg-bar">
+                <button class="seg-btn active" data-weather="clear">晴夜标准</button>
+                <button class="seg-btn" data-weather="rain">🌧 雨夜水波</button>
+                <button class="seg-btn" data-weather="snow">❄ 霜雪星尘</button>
+              </div>
+            </div>
+
+            <div class="toggle-card">
+              <div class="toggle-meta">
+                <strong>踏步涟漪 · 流金激发</strong>
+                <span>踩踏或划过右侧地面光毯触发 3D 水波与流金脉络</span>
+              </div>
+              <input type="checkbox" class="car-switch" id="chkRipple" checked />
+            </div>
+          </div>
+
+          <!-- LAYER 2: Progressive Collapsible Secondary & Engineering Controls -->
+          <div class="drawer-pane hidden" id="paneParams">
+            <details class="acc" open>
+              <summary>光影质感与投影光束</summary>
+              <div class="acc-body">
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>扇面放大倍率</span><span id="valRadius">1.08x</span></div>
+                  <input type="range" id="rngRadius" min="80" max="145" value="108" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">36%</span></div>
+                  <input type="range" id="rngWhiteOp" min="0" max="100" value="36" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">90%</span></div>
+                  <input type="range" id="rngGoldOp" min="0" max="100" value="90" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>浮光跃金流速</span><span id="valGoldSpeed">1.2x</span></div>
+                  <input type="range" id="rngGoldSpeed" min="0" max="250" value="120" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">78%</span></div>
+                  <input type="range" id="rngGlow" min="0" max="180" value="78" />
+                </div>
+                <div class="check-row">
+                  <span>主驾投影仪微光束</span>
+                  <input type="checkbox" class="car-switch" id="chkBeam" checked />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">42%</span></div>
+                  <input type="range" id="rngBeamOp" min="0" max="100" value="42" />
+                </div>
+              </div>
+            </details>
+
+            <details class="acc">
+              <summary>动效时序节奏</summary>
+              <div class="acc-body">
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>开门展开时长</span><span id="valOpenDur">1.6 s</span></div>
+                  <input type="range" id="rngOpenDur" min="10" max="40" value="16" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">提前 0.1 s</span></div>
+                  <input type="range" id="rngBloomDelay" min="-5" max="20" value="-1" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>转轴光波扩散速度</span><span id="valBloomSpeed">0.5x (1.40s)</span></div>
+                  <input type="range" id="rngBloomSpeed" min="30" max="300" value="50" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>全开渐亮与流金驻留</span><span id="valHoldDur">2.3 s</span></div>
+                  <input type="range" id="rngHoldDur" min="10" max="80" value="23" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>缓缓消散时长</span><span id="valFadeDur">1.8 s</span></div>
+                  <input type="range" id="rngFadeDur" min="5" max="40" value="18" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>离车反向收扇时长</span><span id="valFarewellDur">2.0 s</span></div>
+                  <input type="range" id="rngFarewellDur" min="10" max="40" value="20" />
+                </div>
+              </div>
+            </details>
+
+            <details class="acc">
+              <summary>踏步涟漪与天气细节</summary>
+              <div class="acc-body">
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>水波涟漪折射强度</span><span id="valRippleAmp">100%</span></div>
+                  <input type="range" id="rngRippleAmp" min="20" max="180" value="100" />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>流金脉络激发亮度</span><span id="valRippleExcite">115%</span></div>
+                  <input type="range" id="rngRippleExcite" min="20" max="200" value="115" />
+                </div>
+                <div class="check-row">
+                  <span>离车收扇前自动触发告别落脚</span>
+                  <input type="checkbox" class="car-switch" id="chkFarewellStep" checked />
+                </div>
+                <div class="ctrl">
+                  <div class="ctrl-head"><span>天气粒子与地面质感</span><span id="valWeatherInt">100%</span></div>
+                  <input type="range" id="rngWeatherInt" min="20" max="160" value="100" />
+                </div>
+              </div>
+            </details>
+
+            <details class="acc">
+              <summary>工程标定与重置</summary>
+              <div class="acc-body">
+                <div class="hint">
+                  扇面已按车门转轴三维地平面圆弧标定，所有参数调节会自动本地保存。
+                </div>
+                <div class="eng-grid">
+                  <button class="btn sm span-2" id="btnCalib">🎯 拖拽校准车门圆弧</button>
+                  <button class="btn sm" id="btnResetArc">重置车门弧线</button>
+                  <button class="btn sm" id="btnCopyAE">复制校准坐标</button>
+                  <button class="btn sm span-2" id="btnResetParams">恢复默认参数</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Pinned Primary Experience Footer inside Left Panel -->
+        <div class="console-footer">
+          <div class="cta-row">
+            <button class="btn primary" id="btnPlayWelcome">▶ 模拟解锁开门迎宾</button>
+            <button class="btn" id="btnSimStep" title="在光毯中心模拟落脚">👣 落脚</button>
+            <button class="btn" id="btnCloseDoor" title="关门复位">↺ 复位</button>
+          </div>
+          <div class="door-scrub">
+            <span class="door-scrub-label">车门开合</span>
             <input type="range" id="rngDoor" min="0" max="1000" value="0" />
-            <span class="slider-val" id="valDoorAngle">0°</span>
+            <span class="door-scrub-val" id="valDoorAngle">0°</span>
           </div>
         </div>
-      </div>
-    </div>
+      </aside>
+
+      <!-- RIGHT HALF: Pure Unobstructed Vehicle Preview Stage -->
+      <section class="preview-half">
+        <div class="stage-wrap" id="stageWrap">
+          <video id="carVideo" muted playsinline preload="auto"></video>
+          <img id="fallbackClosed" src="assets/car_closed.png?v=9" alt="" style="opacity:1;" />
+          <img id="fallbackOpen" src="assets/car_open.png?v=9" alt="" style="opacity:0;" />
+          <canvas id="glCanvas"></canvas>
+          <canvas id="fxCanvas"></canvas>
+          <canvas id="calibCanvas"></canvas>
+          <div class="stage-pill">点击或划过地面光毯可触发落脚涟漪</div>
+        </div>
+      </section>
+    </main>
+
+    <button class="btn clean-exit" id="btnExitClean">退出全屏预览 (H)</button>
   </div>
 
 <script>
@@ -449,6 +662,8 @@
     fadeDur: 1.8,
     showBeam: true,
     beamOp: 0.42,
+    theme: 'fan',               // 'fan' | 'feather' | 'water' | 'mist'
+    preset: 'business',         // 'business' | 'date' | 'rainy' | 'camp'
     sceneMode: 'welcome',       // 'welcome' | 'farewell' | 'showcase'
     weather: 'clear',           // 'clear' | 'rain' | 'snow'
     weatherIntensity: 1.0,
@@ -700,6 +915,7 @@
     uniform float uWeatherMode;  // 0 = clear, 1 = rain, 2 = snow
     uniform float uWeatherInt;
     uniform float uFarewellWave; // 0..1 outer-to-hinge inward gathering wave
+    uniform float uTheme;        // 0 = golden fan, 1 = feather, 2 = water, 3 = mist
 
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -745,14 +961,14 @@
       float innerArcR = 0.185 * uFanRadius;
       float innerFade = smoothstep(innerArcR * 0.90, innerArcR * 1.06, rFloor);
 
-      // 2) Sleek, continuous folding-fan outer circular arc (eliminates puffy feather-like scallops!)
-      //    Ultra-subtle 0.6% pleated-fan chord tension across 12 silk folds (classic 折扇 silhouette)
+      // 2) Sleek, continuous folding-fan outer circular arc (or softer organic arc for feather/water/mist)
       float normA = clamp(ang / curAng, 0.0, 1.0);
       float pleatNum = 12.0;
       float pleatWave = abs(sin(normA * 3.14159265 * pleatNum));
-      float chordEdge = 1.0 - 0.006 * pow(1.0 - pleatWave, 1.6);
+      float isFanTheme = 1.0 - step(0.5, uTheme);
+      float chordEdge = mix(1.0, 1.0 - 0.006 * pow(1.0 - pleatWave, 1.6), isFanTheme);
       float arcLimit = uFanRadius * chordEdge;
-      float outerMask = 1.0 - smoothstep(arcLimit * 0.986, arcLimit * 1.003, rFloor);
+      float outerMask = 1.0 - smoothstep(arcLimit * mix(0.92, 0.986, isFanTheme), arcLimit * 1.003, rFloor);
       float geoMask = sectorMask * innerFade * outerMask;
       if (geoMask <= 0.002) discard;
 
@@ -931,9 +1147,87 @@
       vec3 auraColor = vec3(0.98, 0.82, 0.46) * ((0.09 + 0.21 * flowEnergy + 0.26 * fwCrest) * uGlow * glowOpenScale + rippleVeinEnergy * 0.38) * goldReveal;
       auraColor += vec3(0.76, 0.89, 1.0) * rainSpark * 0.25;
 
-      // Composite gold cleanly over soft semi-transparent frosted white
+      // Composite gold cleanly over soft semi-transparent frosted white (Theme 0: Golden Fan)
       float outAlpha = gAlpha + wAlpha * (1.0 - gAlpha);
       vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.24;
+
+      // === Alternative Procedural Welcome Themes (1: Feather 羽毛, 2: Water 水面, 3: Mist 雾气) ===
+      if (uTheme > 0.5) {
+        vec2 fxFloor = floorXY + uvRippleOffset * 2.4;
+        float themeFade = pow(smoothstep(0.03, 0.62, uDoor), 1.15) * lumOpenScale * geoMask * lifeAlpha;
+
+        if (uTheme < 1.5) {
+          // Theme 1: 轻羽流光 (Luminous Iridescent Feathers fanning along door arc)
+          float fCount = 7.0;
+          float fCell = normA * fCount;
+          float fIdx = floor(fCell);
+          float fLocal = fract(fCell) - 0.5;
+          float fCurve = sin(normR * 3.8 - t * 1.1 + fIdx * 1.15) * 0.08 * normR;
+          float dx = fLocal + fCurve + uvRippleOffset.x * 4.5;
+          // Tapered feather silhouette: slim at base, plump mid-vane, graceful pointed tip
+          float fLen = 0.86 + 0.14 * sin(fIdx * 2.1 + 0.7);
+          float rNormF = clamp(normR / fLen, 0.0, 1.0);
+          float fWidth = sin(pow(rNormF, 0.72) * 3.14159265) * 0.44;
+          float vane = smoothstep(fWidth + 0.04, fWidth * 0.55, abs(dx)) * step(normR, fLen);
+          // Fine diagonal feather barbs radiating from central rachis
+          float barbCoord = normR * 34.0 - abs(dx) * 26.0 - t * 0.9;
+          float barbs = (0.55 + 0.45 * sin(barbCoord)) * vane;
+          float rachis = exp(-pow(dx * 24.0, 2.0)) * smoothstep(0.0, 0.92, 1.0 - rNormF) * vane;
+          // Soft floating down-feather wisps
+          float wisp = pow(noise(fxFloor * 14.0 + vec2(t * 0.22, -t * 0.35)), 4.5) * 1.6;
+          float excite = rippleVeinEnergy * 0.75 + fwCrest * 0.55 + wakeCrest * 0.48;
+
+          vec3 pearlWhite = vec3(0.96, 0.94, 0.98);
+          vec3 champagneIridescent = mix(vec3(1.0, 0.88, 0.68), vec3(0.86, 0.92, 1.0), sin(normR * 5.0 + fIdx - t * 0.8) * 0.5 + 0.5);
+          vec3 col = pearlWhite * (barbs * 0.72 + wisp * 0.42 + rippleWhiteCaustic * 1.1)
+                   + champagneIridescent * (rachis * 1.15 + barbs * 0.32 * uGlow + excite * 0.62)
+                   + vec3(0.95, 0.98, 1.0) * snowFrost * 0.5;
+          float a = clamp((vane * 0.62 + rachis * 0.45 + wisp * 0.25 + rippleWhiteCaustic * 0.45) * (1.0 - 0.36 * footCoreTotal), 0.0, 1.0) * themeFade;
+          outAlpha = a;
+          outPremult = col * a;
+        } else if (uTheme < 2.5) {
+          // Theme 2: 月影水面 (Moonlit Liquid Water Surface & Caustic Ripples)
+          vec2 wFlow1 = fxFloor * 4.6 + vec2(t * 0.22, -t * 0.16);
+          vec2 wFlow2 = fxFloor * 6.8 + vec2(-t * 0.18, t * 0.24);
+          float nA = noise(wFlow1);
+          float nB = noise(wFlow2 + nA * 1.4);
+          // Crisp bright liquid caustics mesh
+          float caustic1 = pow(1.0 - abs(sin((fxFloor.x * 7.5 + nA * 2.6 + t * 0.7) * 3.14159)), 4.0);
+          float caustic2 = pow(1.0 - abs(sin((fxFloor.y * 7.5 + nB * 2.6 - t * 0.6) * 3.14159)), 4.0);
+          float caustic = clamp((caustic1 + caustic2) * 0.62, 0.0, 1.35);
+          // Gentle concentric pond waves expanding from door hinge
+          float pondWave = pow(sin(normR * 20.0 - t * 2.1 + nA * 2.4) * 0.5 + 0.5, 4.0);
+          float waterExcite = rippleVeinEnergy * 0.85 + rippleWhiteCaustic * 1.45 + fwCrest * 0.55 + wakeCrest * 0.45;
+
+          vec3 deepWater = mix(vec3(0.08, 0.28, 0.40), vec3(0.24, 0.58, 0.68), nB);
+          vec3 moonCaustic = vec3(0.84, 0.96, 1.0) * (caustic * (0.55 + 0.45 * uGlow) + pondWave * 0.36 + waterExcite * 0.72);
+          vec3 warmShimmer = vec3(1.0, 0.90, 0.68) * (pow(caustic, 2.2) * 0.38 + rippleVeinEnergy * 0.35);
+          vec3 col = deepWater * 0.65 + moonCaustic + warmShimmer + vec3(0.92, 0.98, 1.0) * snowFrost * 0.55;
+          float a = clamp((0.32 + caustic * 0.42 + pondWave * 0.24 + waterExcite * 0.42) * (1.0 - 0.30 * footCoreTotal), 0.0, 1.0) * themeFade;
+          outAlpha = a;
+          outPremult = col * a;
+        } else {
+          // Theme 3: 仙雾流岚 (Volumetric Drifting Mist that parts underfoot)
+          vec2 mWarp = vec2(
+            noise(fxFloor * 3.2 + vec2(t * 0.24, -t * 0.16)),
+            noise(fxFloor * 3.6 + vec2(-t * 0.18, t * 0.22))
+          );
+          float m1 = noise(fxFloor * 4.4 + mWarp * 2.1 - vec2(t * 0.15, t * 0.22));
+          float m2 = noise(fxFloor * 9.2 - mWarp * 1.6 + vec2(t * 0.28, -t * 0.14));
+          float m3 = noise(fxFloor * 18.0 + vec2(-t * 0.32, t * 0.20));
+          float mistDensity = smoothstep(0.16, 0.86, m1 * 0.56 + m2 * 0.30 + m3 * 0.14);
+          // Stepping strongly parts the mist right underfoot and pushes a bright billowing ring outward
+          float partClear = 1.0 - 0.78 * footCoreTotal;
+          float billowEdge = rippleWhiteCaustic * 1.25 + rippleVeinEnergy * 0.55 + fwCrest * 0.52 + wakeCrest * 0.42;
+
+          vec3 mistCool = mix(vec3(0.68, 0.78, 0.88), vec3(0.94, 0.96, 0.99), m2);
+          vec3 mistWarm = vec3(1.0, 0.90, 0.70) * (0.26 + 0.42 * (1.0 - normR) + billowEdge * 0.52) * (0.65 + 0.35 * uGlow);
+          vec3 col = mistCool * (0.62 + 0.38 * mistDensity) + mistWarm + vec3(0.95, 0.98, 1.0) * snowFrost * 0.5;
+          float a = clamp((mistDensity * 0.72 + billowEdge * 0.40) * partClear, 0.0, 1.0) * themeFade;
+          outAlpha = a;
+          outPremult = col * a;
+        }
+      }
 
       // Lingering golden starlight dust during dissolve
       if (uDissolve > 0.05 && uDissolve < 0.98) {
@@ -971,7 +1265,7 @@
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
   const uniforms = {};
-  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uBloomWave','uWhiteOp','uGoldOp','uGoldSpeed','uGlow','uRippleAmp','uRippleExcite','uWeatherMode','uWeatherInt','uFarewellWave']
+  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uBloomWave','uWhiteOp','uGoldOp','uGoldSpeed','uGlow','uRippleAmp','uRippleExcite','uWeatherMode','uWeatherInt','uFarewellWave','uTheme']
     .forEach(n => uniforms[n] = gl.getUniformLocation(prog, n));
   uniforms.uRipplePos = gl.getUniformLocation(prog, 'uRipplePos[0]');
   uniforms.uRippleAge = gl.getUniformLocation(prog, 'uRippleAge[0]');
@@ -1017,6 +1311,7 @@
     gl.viewport(0, 0, w, h);
   }
   window.addEventListener('resize', resize);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(stageWrap);
   resize();
 
   function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
@@ -1047,12 +1342,16 @@
       fxCtx.filter = `blur(${Math.max(16, Math.round(w * 0.018))}px)`;
       const grad = fxCtx.createLinearGradient(ex, ey, pMid.x * w, pMid.y * h);
       const pulse = 0.92 + 0.08 * Math.sin(timeSec * 2.4);
-      const c0 = state.weather === 'rain' ? '235, 232, 210' : (state.weather === 'snow' ? '242, 246, 255' : '255, 224, 158');
-      const c1 = state.weather === 'rain' ? '210, 218, 225' : (state.weather === 'snow' ? '220, 232, 248' : '244, 206, 132');
+      let c0 = '255, 224, 158', c1 = '244, 206, 132', c2 = '232, 192, 118';
+      if (state.theme === 'feather') { c0 = '255, 244, 232'; c1 = '238, 224, 245'; c2 = '226, 206, 185'; }
+      else if (state.theme === 'water') { c0 = '210, 246, 255'; c1 = '130, 212, 235'; c2 = '95, 182, 215'; }
+      else if (state.theme === 'mist') { c0 = '236, 242, 252'; c1 = '204, 216, 234'; c2 = '190, 202, 220'; }
+      else if (state.weather === 'rain') { c0 = '235, 232, 210'; c1 = '210, 218, 225'; }
+      else if (state.weather === 'snow') { c0 = '242, 246, 255'; c1 = '220, 232, 248'; }
       grad.addColorStop(0.0, `rgba(${c0}, ${0.62 * beamStrength * pulse})`);
       grad.addColorStop(0.30, `rgba(${c1}, ${0.26 * beamStrength * pulse})`);
-      grad.addColorStop(0.78, `rgba(232, 192, 118, ${0.09 * beamStrength})`);
-      grad.addColorStop(1.0, `rgba(232, 192, 118, 0.0)`);
+      grad.addColorStop(0.78, `rgba(${c2}, ${0.09 * beamStrength})`);
+      grad.addColorStop(1.0, `rgba(${c2}, 0.0)`);
 
       fxCtx.beginPath();
       fxCtx.moveTo(ex, ey);
@@ -1093,14 +1392,18 @@
       const fade = Math.sin((sp.age / sp.life) * Math.PI);
       const rad = sp.size * (w / 1280) * (0.7 + 0.5 * fade);
       const g = fxCtx.createRadialGradient(sx, sy, 0, sx, sy, rad * 3.2);
-      if (sp.warm) {
-        g.addColorStop(0, `rgba(255, 248, 224, ${0.95 * fade})`);
-        g.addColorStop(0.4, `rgba(244, 205, 122, ${0.55 * fade})`);
-        g.addColorStop(1, 'rgba(244, 205, 122, 0)');
+      if (sp.warm && (state.theme === 'fan' || state.theme === 'feather')) {
+        g.addColorStop(0, `rgba(255, 248, 228, ${0.95 * fade})`);
+        g.addColorStop(0.4, `rgba(244, 212, 148, ${0.55 * fade})`);
+        g.addColorStop(1, 'rgba(244, 212, 148, 0)');
+      } else if (state.theme === 'water') {
+        g.addColorStop(0, `rgba(232, 252, 255, ${0.95 * fade})`);
+        g.addColorStop(0.4, `rgba(115, 220, 245, ${0.52 * fade})`);
+        g.addColorStop(1, 'rgba(115, 220, 245, 0)');
       } else {
-        g.addColorStop(0, `rgba(235, 248, 255, ${0.90 * fade})`);
-        g.addColorStop(0.45, `rgba(170, 215, 255, ${0.42 * fade})`);
-        g.addColorStop(1, 'rgba(170, 215, 255, 0)');
+        g.addColorStop(0, `rgba(242, 248, 255, ${0.90 * fade})`);
+        g.addColorStop(0.45, `rgba(195, 218, 242, ${0.44 * fade})`);
+        g.addColorStop(1, 'rgba(195, 218, 242, 0)');
       }
       fxCtx.fillStyle = g;
       fxCtx.beginPath();
@@ -1427,6 +1730,7 @@
       }
     }
     const weatherCode = state.weather === 'rain' ? 1.0 : (state.weather === 'snow' ? 2.0 : 0.0);
+    const themeCode = state.theme === 'feather' ? 1.0 : (state.theme === 'water' ? 2.0 : (state.theme === 'mist' ? 3.0 : 0.0));
 
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -1449,28 +1753,11 @@
     gl.uniform1f(uniforms.uWeatherMode, weatherCode);
     gl.uniform1f(uniforms.uWeatherInt, state.weatherIntensity);
     gl.uniform1f(uniforms.uFarewellWave, state.farewellWave);
+    gl.uniform1f(uniforms.uTheme, themeCode);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     drawProjectorBeam(tSec, dt);
     drawCalibOverlay();
-
-    if (recorder && recorder.state === 'recording') {
-      recCtx.clearRect(0, 0, recCanvas.width, recCanvas.height);
-      if (state.videoReady) {
-        recCtx.drawImage(video, 0, 0, recCanvas.width, recCanvas.height);
-        const cA = parseFloat(fallbackClosed.style.opacity || '0');
-        const oA = parseFloat(fallbackOpen.style.opacity || '0');
-        if (cA > 0.01) { recCtx.save(); recCtx.globalAlpha = cA; recCtx.drawImage(fallbackClosed, 0, 0, recCanvas.width, recCanvas.height); recCtx.restore(); }
-        if (oA > 0.01) { recCtx.save(); recCtx.globalAlpha = oA; recCtx.drawImage(fallbackOpen, 0, 0, recCanvas.width, recCanvas.height); recCtx.restore(); }
-      } else {
-        recCtx.drawImage(fallbackClosed, 0, 0, recCanvas.width, recCanvas.height);
-        recCtx.save(); recCtx.globalAlpha = state.door;
-        recCtx.drawImage(fallbackOpen, 0, 0, recCanvas.width, recCanvas.height);
-        recCtx.restore();
-      }
-      recCtx.drawImage(glCanvas, 0, 0, recCanvas.width, recCanvas.height);
-      recCtx.drawImage(fxCanvas, 0, 0, recCanvas.width, recCanvas.height);
-    }
 
     requestAnimationFrame(tick);
   }
@@ -1535,12 +1822,63 @@
       el.classList.toggle('active', el.dataset.weather === state.weather);
     });
   }
+  function syncPresetMatch() {
+    const matched = Object.keys(LIFE_PRESETS).find(k => LIFE_PRESETS[k].theme === state.theme && LIFE_PRESETS[k].weather === state.weather) || '';
+    state.preset = matched;
+    syncPresetUI();
+  }
   function setWeather(w) {
     state.weather = w;
     syncWeatherUI();
+    syncPresetMatch();
+    saveParams();
+  }
+  function syncThemeUI() {
+    document.querySelectorAll('[data-theme]').forEach(el => {
+      el.classList.toggle('active', el.dataset.theme === state.theme);
+    });
+  }
+  function syncPresetUI() {
+    document.querySelectorAll('[data-preset]').forEach(el => {
+      el.classList.toggle('active', el.dataset.preset === state.preset);
+    });
+  }
+  function setTheme(th) {
+    state.theme = th;
+    syncThemeUI();
+    syncPresetMatch();
+    saveParams();
+    if (state.door < 0.1 || state.visibility < 0.08) {
+      state.mode = 'showcase'; state.door = 1.0; state.visibility = 1.0; state.dissolve = 0.0; state.bloomWave = 1.0;
+    }
+  }
+  const LIFE_PRESETS = {
+    business: { theme: 'fan',     weather: 'clear', sceneMode: 'welcome',  goldSpeed: 1.2 },
+    date:     { theme: 'feather', weather: 'clear', sceneMode: 'showcase', goldSpeed: 0.9 },
+    rainy:    { theme: 'water',   weather: 'rain',  sceneMode: 'showcase', goldSpeed: 1.1 },
+    camp:     { theme: 'mist',    weather: 'snow',  sceneMode: 'showcase', goldSpeed: 0.85 }
+  };
+  function applyPreset(key) {
+    const p = LIFE_PRESETS[key];
+    if (!p) return;
+    state.preset = key;
+    state.theme = p.theme;
+    state.weather = p.weather;
+    state.goldSpeed = p.goldSpeed;
+    syncPresetUI();
+    syncThemeUI();
+    syncWeatherUI();
+    setSceneMode(p.sceneMode, true);
+    rangeSyncers.forEach(fn => fn());
     saveParams();
   }
 
+  document.querySelectorAll('[data-preset]').forEach(el => {
+    el.addEventListener('click', () => applyPreset(el.dataset.preset));
+  });
+  document.querySelectorAll('[data-theme]').forEach(el => {
+    el.addEventListener('click', () => setTheme(el.dataset.theme));
+  });
   document.querySelectorAll('[data-scene]').forEach(el => {
     el.addEventListener('click', () => setSceneMode(el.dataset.scene, true));
   });
@@ -1565,12 +1903,20 @@
 
   btnPlayWelcome.onclick = triggerCurrentScene;
   document.getElementById('btnSimStep').onclick = triggerCenterStep;
-  document.getElementById('btnSimStepDrawer').onclick = triggerCenterStep;
   document.getElementById('btnCloseDoor').onclick = () => {
     state.mode = 'idle'; state.door = 0; state.visibility = 0; state.dissolve = 0; state.bloomWave = 0; state.farewellWave = 0; state.manualFullTime = 0;
     ripples.length = 0; stepSparks.length = 0;
     phaseText.textContent = '待机 · 车门已关闭';
   };
+
+  // Live Cockpit Clock
+  const clockEl = document.getElementById('cockpitClock');
+  function updateClock() {
+    const d = new Date();
+    if (clockEl) clockEl.textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  updateClock();
+  setInterval(updateClock, 15000);
 
   // Interactive Stage Floor Stepping (Click / Drag over fan projection -> True 3D Floor Ripples)
   let isStepDragging = false;
@@ -1578,7 +1924,7 @@
   let lastStepAt = 0;
   function tryStageStep(e, isDrag) {
     if (state.calib || !state.rippleEnabled) return;
-    if (e.target.closest('.topbar, .dock, .drawer, .clean-exit')) return;
+    if (e.target.closest('.status-bar, .left-console, .clean-exit')) return;
     if (state.door < 0.08 || state.visibility < 0.08) return;
     const rect = stageWrap.getBoundingClientRect();
     const nx = (e.clientX - rect.left) / rect.width;
@@ -1594,12 +1940,12 @@
     lastStepAt = now;
   }
   stageWrap.addEventListener('pointerdown', (e) => {
-    if (state.calib || e.target.closest('.topbar, .dock, .drawer, .clean-exit')) return;
+    if (state.calib || e.target.closest('.status-bar, .left-console, .clean-exit')) return;
     isStepDragging = true;
     tryStageStep(e, false);
   });
   stageWrap.addEventListener('pointermove', (e) => {
-    if (!state.calib && state.rippleEnabled && state.door >= 0.08 && state.visibility >= 0.08 && !e.target.closest('.topbar, .dock, .drawer, .clean-exit')) {
+    if (!state.calib && state.rippleEnabled && state.door >= 0.08 && state.visibility >= 0.08 && !e.target.closest('.status-bar, .left-console, .clean-exit')) {
       const rect = stageWrap.getBoundingClientRect();
       const fp = projectScreenToFloor((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
       stageWrap.classList.toggle('step-ready', !!(fp && isPointInFanFloor(fp.x, fp.y, 0.14)));
@@ -1635,6 +1981,8 @@
         fadeDur: state.fadeDur,
         showBeam: state.showBeam,
         beamOp: state.beamOp,
+        theme: state.theme,
+        preset: state.preset,
         sceneMode: state.sceneMode,
         weather: state.weather,
         weatherIntensity: state.weatherIntensity,
@@ -1691,6 +2039,8 @@
   chkFarewellStep.checked = !!state.farewellAutoStep;
   chkFarewellStep.addEventListener('change', (e) => { state.farewellAutoStep = e.target.checked; saveParams(); });
 
+  syncPresetUI();
+  syncThemeUI();
   syncSceneUI();
   syncWeatherUI();
 
@@ -1701,13 +2051,10 @@
     calibCanvas.classList.toggle('active', state.calib);
     if (state.calib && state.door < 0.8) state.mode = 'showcase';
   };
-  const drawer = document.getElementById('drawer');
-  const btnDrawer = document.getElementById('btnDrawer');
-  btnDrawer.onclick = () => {
-    const hidden = drawer.classList.toggle('hidden');
-    btnDrawer.classList.toggle('active', !hidden);
-  };
-  function toggleClean() { document.body.classList.toggle('clean-ui'); }
+  function toggleClean() {
+    document.body.classList.toggle('clean-ui');
+    requestAnimationFrame(resize);
+  }
   document.getElementById('btnClean').onclick = toggleClean;
   document.getElementById('btnExitClean').onclick = toggleClean;
 
@@ -1723,6 +2070,8 @@
     chkBeam.checked = !!state.showBeam;
     chkRipple.checked = !!state.rippleEnabled;
     chkFarewellStep.checked = !!state.farewellAutoStep;
+    syncPresetUI();
+    syncThemeUI();
     syncSceneUI();
     syncWeatherUI();
     try { localStorage.removeItem(PARAMS_STORAGE_KEY); } catch {}
@@ -1747,34 +2096,6 @@
     };
     navigator.clipboard?.writeText(JSON.stringify(data, null, 2));
     alert('已复制当前车门圆弧锚点与全部参数到剪贴板！');
-  };
-
-  // Recorder
-  let recorder = null, recChunks = [];
-  const recCanvas = document.createElement('canvas');
-  recCanvas.width = 1920; recCanvas.height = 1080;
-  const recCtx = recCanvas.getContext('2d');
-  const btnRecord = document.getElementById('btnRecord');
-  btnRecord.onclick = () => {
-    if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
-    recChunks = [];
-    const stream = recCanvas.captureStream(30);
-    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-    recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 14000000 });
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) recChunks.push(e.data); };
-    recorder.onstop = () => {
-      btnRecord.classList.remove('recording');
-      btnRecord.textContent = '⏺ 录制演示视频';
-      const blob = new Blob(recChunks, { type: mime });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'car_welcome_fan_door_arc.webm'; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
-    };
-    recorder.start();
-    btnRecord.classList.add('recording');
-    btnRecord.textContent = '⏹ 停止并保存 WebM';
-    triggerCurrentScene();
   };
 
   window.addEventListener('keydown', (e) => {
