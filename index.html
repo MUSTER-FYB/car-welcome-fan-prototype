@@ -194,6 +194,14 @@
           <input type="range" id="rngOpenDur" min="10" max="40" value="20" />
         </div>
         <div class="ctrl">
+          <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">0.2 s</span></div>
+          <input type="range" id="rngBloomDelay" min="0" max="20" value="2" />
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span>转轴光波扩散速度</span><span id="valBloomSpeed">1.0x (0.7s)</span></div>
+          <input type="range" id="rngBloomSpeed" min="30" max="300" value="100" />
+        </div>
+        <div class="ctrl">
           <div class="ctrl-head"><span>全开渐亮与流金驻留</span><span id="valHoldDur">1.8 s</span></div>
           <input type="range" id="rngHoldDur" min="10" max="80" value="18" />
         </div>
@@ -287,6 +295,8 @@
     goldSpeed: 1.2,
     glow: 0.78,
     openDur: 2.0,
+    bloomDelay: 0.2,
+    bloomSpeed: 1.0,
     holdDur: 1.8,
     fadeDur: 1.8,
     showBeam: true,
@@ -867,8 +877,8 @@
     lastTs = now;
     const tSec = now / 1000;
 
-    const BLOOM_DELAY = 0.20; // 0.2s calm low-brightness pause after full open
-    const BLOOM_DUR   = 0.70; // smooth hinge-outward brightening wave duration
+    const BLOOM_DELAY = state.bloomDelay; // 0.0~2.0s calm low-brightness pause after full open (default 0.2s)
+    const BLOOM_DUR   = 0.70 / Math.max(0.2, state.bloomSpeed); // hinge-outward brightening wave duration (default 0.7s @ 1.0x)
 
     if (state.mode === 'opening') {
       state.phaseTime += dt;
@@ -1014,6 +1024,8 @@
   bindRange('rngGoldSpeed', 'valGoldSpeed', v => `${(v/100).toFixed(1)}x`, v => state.goldSpeed = v / 100);
   bindRange('rngGlow', 'valGlow', v => `${v}%`, v => state.glow = v / 100);
   bindRange('rngOpenDur', 'valOpenDur', v => `${(v/10).toFixed(1)} s`, v => state.openDur = v / 10);
+  bindRange('rngBloomDelay', 'valBloomDelay', v => `${(v/10).toFixed(1)} s`, v => state.bloomDelay = v / 10);
+  bindRange('rngBloomSpeed', 'valBloomSpeed', v => { const s = v / 100; return `${s.toFixed(1)}x (${(0.70 / s).toFixed(2)}s)`; }, v => state.bloomSpeed = v / 100);
   bindRange('rngHoldDur', 'valHoldDur', v => `${(v/10).toFixed(1)} s`, v => state.holdDur = v / 10);
   bindRange('rngFadeDur', 'valFadeDur', v => `${(v/10).toFixed(1)} s`, v => state.fadeDur = v / 10);
   bindRange('rngBeamOp', 'valBeamOp', v => `${v}%`, v => state.beamOp = v / 100);
