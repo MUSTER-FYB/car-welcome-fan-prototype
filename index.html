@@ -143,8 +143,8 @@
   <div class="app">
     <div class="stage-wrap" id="stageWrap">
       <video id="carVideo" muted playsinline preload="auto"></video>
-      <img id="fallbackClosed" src="assets/car_closed.png?v=7" alt="" style="opacity:1;" />
-      <img id="fallbackOpen" src="assets/car_open.png?v=7" alt="" style="opacity:0;" />
+      <img id="fallbackClosed" src="assets/car_closed.png?v=8" alt="" style="opacity:1;" />
+      <img id="fallbackOpen" src="assets/car_open.png?v=8" alt="" style="opacity:0;" />
       <canvas id="glCanvas"></canvas>
       <canvas id="fxCanvas"></canvas>
       <canvas id="calibCanvas"></canvas>
@@ -168,8 +168,8 @@
       <div class="drawer" id="drawer">
         <h2>扇面尺寸与无轴边缘</h2>
         <div class="ctrl">
-          <div class="ctrl-head"><span>扇面放大倍率（沿车门圆弧）</span><span id="valRadius">1.04x</span></div>
-          <input type="range" id="rngRadius" min="80" max="145" value="104" />
+          <div class="ctrl-head"><span>扇面放大倍率（沿车门圆弧）</span><span id="valRadius">1.08x</span></div>
+          <input type="range" id="rngRadius" min="80" max="145" value="108" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">36%</span></div>
@@ -255,14 +255,14 @@
   ];
 
   const DEFAULT_ANCHORS = [
-    { x: 0.428, y: 0.708, label: 'O.车门转轴' },
-    { x: 0.700, y: 0.870, label: 'A.车身门槛端(0°)' },
-    { x: 0.525, y: 0.945, label: 'M.车门半开弧点(34°)' },
-    { x: 0.325, y: 0.855, label: 'B.车门全开端(68°)' }
+    { x: 0.445, y: 0.680, label: 'O.车门转轴' },
+    { x: 0.625, y: 0.805, label: 'A.车身门槛端(0°)' },
+    { x: 0.502, y: 0.865, label: 'M.车门半开弧点(34°)' },
+    { x: 0.375, y: 0.822, label: 'B.车门全开端(68°)' }
   ];
-  const DEFAULT_EMITTER = { x: 0.537, y: 0.303, label: '主驾方形投影仪' };
+  const DEFAULT_EMITTER = { x: 0.522, y: 0.376, label: '主驾方形投影仪' };
 
-  const STORAGE_KEY = 'car_fan_welcome_arc_calib_v3';
+  const STORAGE_KEY = 'car_fan_welcome_arc_calib_v4';
   let anchors = DEFAULT_ANCHORS.map(p => ({ ...p }));
   let emitter = { ...DEFAULT_EMITTER };
   try {
@@ -279,7 +279,7 @@
     dissolve: 0.0,
     mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
     phaseTime: 0.0,
-    fanRadius: 1.04,   // 1.0 = exact door length arc, 1.04 = grand rounded arc staying 100% inside 16:9 frame
+    fanRadius: 1.08,   // 1.0 = exact door length arc, 1.08 = grand rounded arc staying 100% inside 16:9 frame
     whiteOp: 0.36,
     goldOp: 0.88,
     goldSpeed: 1.2,
@@ -309,22 +309,43 @@
   const valDoorAngle = document.getElementById('valDoorAngle');
 
   // Preload scrubbable all-intra MP4 into memory Blob URL for zero-lag 60fps door seeking
-  fetch('assets/car_door_open_scrub.mp4?v=7')
+  fetch('assets/car_door_open_scrub.mp4?v=8')
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
     .then(blob => {
       video.src = URL.createObjectURL(blob);
       video.load();
     })
     .catch(() => {
-      video.src = 'assets/car_door_open_scrub.mp4?v=7';
+      video.src = 'assets/car_door_open_scrub.mp4?v=8';
       video.load();
     });
+
+  // Measured angle-to-video-time LUT for V5 Seedance 2.5 clip (zero dead-time, exact door-edge lock)
+  const DOOR_VIDEO_LUT = [
+    [0.000, 0.16],
+    [0.030, 0.22],
+    [0.147, 0.35],
+    [0.353, 0.48],
+    [0.500, 0.58],
+    [0.765, 0.72],
+    [0.940, 0.88],
+    [1.000, 0.99]
+  ];
+  function doorProgressToVideoNorm(p) {
+    const x = Math.max(0, Math.min(1, p));
+    for (let i = 1; i < DOOR_VIDEO_LUT.length; i++) {
+      const [x0, y0] = DOOR_VIDEO_LUT[i - 1];
+      const [x1, y1] = DOOR_VIDEO_LUT[i];
+      if (x <= x1) return y0 + ((x - x0) / Math.max(1e-6, x1 - x0)) * (y1 - y0);
+    }
+    return 0.99;
+  }
 
   video.addEventListener('loadedmetadata', () => {
     state.videoReady = true;
     state.videoDuration = Math.max(0.1, video.duration - 0.05);
     video.pause();
-    video.currentTime = state.door * state.videoDuration;
+    video.currentTime = doorProgressToVideoNorm(state.door) * state.videoDuration;
   });
   video.addEventListener('error', () => {
     state.videoReady = false;
@@ -805,7 +826,7 @@
     valDoorAngle.textContent = `${Math.round(clamped * 68)}°`;
     if (state.mode !== 'manual') rngDoor.value = Math.round(clamped * 1000);
     if (state.videoReady) {
-      const targetTime = clamped * state.videoDuration;
+      const targetTime = doorProgressToVideoNorm(clamped) * state.videoDuration;
       if (Math.abs(targetTime - lastSeekVal) > 0.008 && !video.seeking) {
         video.currentTime = targetTime;
         lastSeekVal = targetTime;

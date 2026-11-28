@@ -139,11 +139,11 @@
 
     try {
         var cp = fanProj.property("Effects").addProperty("ADBE Corner Pin");
-        // 与车门转轴 O(822,765)、门槛端 A(1344,940)、全开端 B(624,923) 对齐的放大地面四角坐标（无扇轴版）
-        cp.property("Upper Left").setValue([1470, 1080]);
-        cp.property("Upper Right").setValue([480, 1045]);
-        cp.property("Lower Left").setValue([1145, 795]);
-        cp.property("Lower Right").setValue([640, 748]);
+        // 与 V5 Seedream 5.5 车门转轴 O(854,734)、门槛端 A(1200,869)、全开端 B(720,888) 对齐的地面四角坐标（无扇轴版）
+        cp.property("Upper Left").setValue([1275, 965]);
+        cp.property("Upper Right").setValue([615, 950]);
+        cp.property("Lower Left").setValue([1085, 765]);
+        cp.property("Lower Right").setValue([725, 725]);
     } catch (e) {}
 
     // 柔和环境反光辅助层 (Screen 混合模式，增强车库地坪浮光感)
@@ -156,7 +156,7 @@
         blur.property("Blurriness").setValue(42);
     } catch (e) {}
 
-    // 方形投影仪光束占位层（主驾方向盘左侧方形投影仪出光点 [1031, 327]）
+    // 方形投影仪光束占位层（主驾方向盘左侧方形投影仪出光点 [1002, 406]）
     var beamSolid = mainComp.layers.addSolid([0.96, 0.80, 0.48], "Projector_Beam_From_Dashboard", 1920, 1080, 1.0, totalDur);
     beamSolid.blendingMode = BlendingMode.SCREEN;
     beamSolid.property("Transform").property("Opacity").setValueAtTime(0.0, 0);
@@ -167,7 +167,7 @@
     try {
         var mask = beamSolid.Masks.addProperty("Mask");
         var shape = new Shape();
-        shape.vertices = [[1031, 327], [380, 960], [1160, 1020]];
+        shape.vertices = [[1002, 406], [660, 915], [1215, 890]];
         shape.closed = true;
         mask.property("Mask Path").setValue(shape);
         mask.property("Mask Feather").setValue([95, 95]);
