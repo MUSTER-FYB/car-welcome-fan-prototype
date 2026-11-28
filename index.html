@@ -172,20 +172,20 @@
           <input type="range" id="rngRadius" min="80" max="145" value="108" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">36%</span></div>
-          <input type="range" id="rngWhiteOp" min="0" max="100" value="36" />
+          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">24%</span></div>
+          <input type="range" id="rngWhiteOp" min="0" max="100" value="24" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">88%</span></div>
-          <input type="range" id="rngGoldOp" min="0" max="100" value="88" />
+          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">72%</span></div>
+          <input type="range" id="rngGoldOp" min="0" max="100" value="72" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>浮光跃金流速</span><span id="valGoldSpeed">1.2x</span></div>
           <input type="range" id="rngGoldSpeed" min="0" max="250" value="120" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">76%</span></div>
-          <input type="range" id="rngGlow" min="0" max="180" value="76" />
+          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">46%</span></div>
+          <input type="range" id="rngGlow" min="0" max="180" value="46" />
         </div>
 
         <h2>迎宾时序节奏</h2>
@@ -208,8 +208,8 @@
           <input type="checkbox" id="chkBeam" checked />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">46%</span></div>
-          <input type="range" id="rngBeamOp" min="0" max="100" value="46" />
+          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">30%</span></div>
+          <input type="range" id="rngBeamOp" min="0" max="100" value="30" />
         </div>
 
         <div class="hint">
@@ -280,15 +280,15 @@
     mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
     phaseTime: 0.0,
     fanRadius: 1.08,   // 1.0 = exact door length arc, 1.08 = grand rounded arc staying 100% inside 16:9 frame
-    whiteOp: 0.36,
-    goldOp: 0.88,
+    whiteOp: 0.24,
+    goldOp: 0.72,
     goldSpeed: 1.2,
-    glow: 0.76,
+    glow: 0.46,
     openDur: 2.0,
     holdDur: 1.0,
     fadeDur: 1.8,
     showBeam: true,
-    beamOp: 0.46,
+    beamOp: 0.30,
     calib: false,
     videoReady: false,
     videoDuration: 4.0
@@ -558,26 +558,29 @@
       float flowEnergy = clamp(radialCrest * 0.82 + diagSweep * 1.05 + fineRipple * 0.40, 0.0, 1.5);
 
       // Soft pleat luminance contour matching the 8 rounded fan petals (adds graceful silk fold depth)
-      float pleatShade = 0.88 + 0.14 * roundedLobe;
+      float pleatShade = 0.84 + 0.14 * roundedLobe;
 
-      // Semi-transparent pearl-white frosted fan layer (soft, restrained, non-glaring)
+      // Gentle luxury luminance settle once fully unfolded so the full-open fan feels calm & restrained on the dark floor
+      float fullOpenCalm = mix(1.0, 0.80, smoothstep(0.80, 1.0, uDoor));
+
+      // Semi-transparent pearl-white frosted fan layer (soft, low-key, non-glaring)
       float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * geoMask * lifeAlpha;
-      vec3 wColor = wStraight * pleatShade * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow);
+      vec3 wColor = wStraight * pleatShade * fullOpenCalm * (0.76 + 0.08 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow);
 
-      // Refined flowing champagne-gold veins (clear moving contrast, capped smoothly so never glaring!)
+      // Refined flowing champagne-gold veins (clear moving contrast, softly capped so never glaring when fully open)
       float gAlpha = gTex.a * uGoldOp * goldReveal * geoMask * lifeAlpha;
-      vec3 goldResting = gStraight * vec3(0.78, 0.69, 0.52);
-      vec3 goldMolten = vec3(1.0, 0.88, 0.58) * (radialCrest * 0.58 + fineRipple * 0.30) * uGlow;
-      vec3 goldSpecWhite = vec3(1.0, 0.96, 0.84) * (diagSweep * 0.68 + glint * 0.48) * uGlow;
-      vec3 gColor = clamp(goldResting + goldMolten + goldSpecWhite, 0.0, 1.24);
+      vec3 goldResting = gStraight * vec3(0.62, 0.52, 0.37);
+      vec3 goldMolten = vec3(0.95, 0.79, 0.48) * (radialCrest * 0.46 + fineRipple * 0.24) * uGlow;
+      vec3 goldSpecWhite = vec3(1.0, 0.91, 0.72) * (diagSweep * 0.46 + glint * 0.32) * uGlow;
+      vec3 gColor = clamp((goldResting + goldMolten + goldSpecWhite) * fullOpenCalm, 0.0, 0.88);
 
       // Restrained warm floor bounce halo
       float auraMask = smoothstep(0.03, 0.52, gTex.a + wTex.a * 0.18) * geoMask * lifeAlpha;
-      vec3 auraColor = vec3(0.98, 0.82, 0.46) * (0.10 + 0.22 * flowEnergy) * uGlow * goldReveal;
+      vec3 auraColor = vec3(0.94, 0.76, 0.42) * (0.07 + 0.16 * flowEnergy) * uGlow * goldReveal * fullOpenCalm;
 
       // Composite gold cleanly over soft semi-transparent frosted white
       float outAlpha = gAlpha + wAlpha * (1.0 - gAlpha);
-      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.26;
+      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.15;
 
       // Lingering golden starlight dust during dissolve
       if (uDissolve > 0.05 && uDissolve < 0.98) {
