@@ -172,20 +172,20 @@
           <input type="range" id="rngRadius" min="80" max="145" value="108" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">24%</span></div>
-          <input type="range" id="rngWhiteOp" min="0" max="100" value="24" />
+          <div class="ctrl-head"><span>白扇半透明度</span><span id="valWhiteOp">36%</span></div>
+          <input type="range" id="rngWhiteOp" min="0" max="100" value="36" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">72%</span></div>
-          <input type="range" id="rngGoldOp" min="0" max="100" value="72" />
+          <div class="ctrl-head"><span>金边不透明度</span><span id="valGoldOp">90%</span></div>
+          <input type="range" id="rngGoldOp" min="0" max="100" value="90" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>浮光跃金流速</span><span id="valGoldSpeed">1.2x</span></div>
           <input type="range" id="rngGoldSpeed" min="0" max="250" value="120" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">46%</span></div>
-          <input type="range" id="rngGlow" min="0" max="180" value="46" />
+          <div class="ctrl-head"><span>流金高光与地坪反光</span><span id="valGlow">78%</span></div>
+          <input type="range" id="rngGlow" min="0" max="180" value="78" />
         </div>
 
         <h2>迎宾时序节奏</h2>
@@ -194,8 +194,8 @@
           <input type="range" id="rngOpenDur" min="10" max="40" value="20" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>全开流金驻留时长</span><span id="valHoldDur">1.0 s</span></div>
-          <input type="range" id="rngHoldDur" min="5" max="80" value="10" />
+          <div class="ctrl-head"><span>全开渐亮与流金驻留</span><span id="valHoldDur">1.8 s</span></div>
+          <input type="range" id="rngHoldDur" min="10" max="80" value="18" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>缓缓消散时长</span><span id="valFadeDur">1.8 s</span></div>
@@ -208,8 +208,8 @@
           <input type="checkbox" id="chkBeam" checked />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">30%</span></div>
-          <input type="range" id="rngBeamOp" min="0" max="100" value="30" />
+          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">44%</span></div>
+          <input type="range" id="rngBeamOp" min="0" max="100" value="44" />
         </div>
 
         <div class="hint">
@@ -277,18 +277,20 @@
     door: 0.0,         // 0..1 door open progress
     visibility: 0.0,
     dissolve: 0.0,
+    bloomWave: 0.0,    // 0 = low opacity/brightness during opening & first 0.2s at full open; 0->1 radial bloom from hinge outward
+    manualFullTime: 0.0,
     mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
     phaseTime: 0.0,
     fanRadius: 1.08,   // 1.0 = exact door length arc, 1.08 = grand rounded arc staying 100% inside 16:9 frame
-    whiteOp: 0.24,
-    goldOp: 0.72,
+    whiteOp: 0.36,
+    goldOp: 0.90,
     goldSpeed: 1.2,
-    glow: 0.46,
+    glow: 0.78,
     openDur: 2.0,
-    holdDur: 1.0,
+    holdDur: 1.8,
     fadeDur: 1.8,
     showBeam: true,
-    beamOp: 0.30,
+    beamOp: 0.44,
     calib: false,
     videoReady: false,
     videoDuration: 4.0
@@ -445,6 +447,7 @@
     uniform float uFanRadius;    // outer arc radius in door-length units (1.0 = exact door arc)
     uniform float uVisibility;   // 0..1 overall alpha
     uniform float uDissolve;     // 0..1 dissolve progress
+    uniform float uBloomWave;    // 0..1 hinge-outward brightening wave (starts 0.2s after full open)
     uniform float uWhiteOp;
     uniform float uGoldOp;
     uniform float uGoldSpeed;
@@ -558,29 +561,40 @@
       float flowEnergy = clamp(radialCrest * 0.82 + diagSweep * 1.05 + fineRipple * 0.40, 0.0, 1.5);
 
       // Soft pleat luminance contour matching the 8 rounded fan petals (adds graceful silk fold depth)
-      float pleatShade = 0.84 + 0.14 * roundedLobe;
+      float pleatShade = 0.88 + 0.14 * roundedLobe;
 
-      // Gentle luxury luminance settle once fully unfolded so the full-open fan feels calm & restrained on the dark floor
-      float fullOpenCalm = mix(1.0, 0.80, smoothstep(0.80, 1.0, uDoor));
+      // Two-stage brightness choreography:
+      // 1) During door opening (0°->68°) and first 0.2s after full open (uBloomWave == 0): low opacity & calm low brightness
+      // 2) After 0.2s: smoothly awakens radially outward from door hinge O (normR=0) to outer fan petals (normR=1)
+      float bloomActive = smoothstep(0.0, 0.03, uBloomWave);
+      float wakeFront = uBloomWave * 1.48 - 0.14;
+      float radialBloom = smoothstep(normR - 0.30, normR + 0.16, wakeFront) * bloomActive;
+      radialBloom = mix(radialBloom, 1.0, smoothstep(0.97, 1.0, uBloomWave));
+      float wakeCrest = exp(-pow((normR - (uBloomWave * 1.18 - 0.08)) * 5.2, 2.0)) * sin(uBloomWave * 3.14159265);
 
-      // Semi-transparent pearl-white frosted fan layer (soft, low-key, non-glaring)
-      float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * geoMask * lifeAlpha;
-      vec3 wColor = wStraight * pleatShade * fullOpenCalm * (0.76 + 0.08 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow);
+      float whiteOpenScale = mix(0.40, 1.0, radialBloom);
+      float goldOpenScale  = mix(0.45, 1.0, radialBloom);
+      float lumOpenScale   = mix(0.56, 1.0, radialBloom);
+      float glowOpenScale  = mix(0.32, 1.0, radialBloom);
 
-      // Refined flowing champagne-gold veins (clear moving contrast, softly capped so never glaring when fully open)
-      float gAlpha = gTex.a * uGoldOp * goldReveal * geoMask * lifeAlpha;
-      vec3 goldResting = gStraight * vec3(0.62, 0.52, 0.37);
-      vec3 goldMolten = vec3(0.95, 0.79, 0.48) * (radialCrest * 0.46 + fineRipple * 0.24) * uGlow;
-      vec3 goldSpecWhite = vec3(1.0, 0.91, 0.72) * (diagSweep * 0.46 + glint * 0.32) * uGlow;
-      vec3 gColor = clamp((goldResting + goldMolten + goldSpecWhite) * fullOpenCalm, 0.0, 0.88);
+      // Semi-transparent pearl-white frosted fan layer (low opacity while opening -> full luminous frost after 0.2s radial bloom)
+      float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * whiteOpenScale * geoMask * lifeAlpha;
+      vec3 wColor = wStraight * pleatShade * lumOpenScale * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow * glowOpenScale + 0.10 * wakeCrest);
+
+      // Refined flowing champagne-gold veins (restrained during opening -> vibrant liquid-gold wave radiating outward from hinge)
+      float gAlpha = gTex.a * uGoldOp * goldReveal * goldOpenScale * geoMask * lifeAlpha;
+      vec3 goldResting = gStraight * vec3(0.78, 0.68, 0.50);
+      vec3 goldMolten = vec3(1.0, 0.87, 0.56) * (radialCrest * 0.56 + fineRipple * 0.28 + wakeCrest * 0.45) * uGlow * glowOpenScale;
+      vec3 goldSpecWhite = vec3(1.0, 0.96, 0.84) * (diagSweep * 0.66 + glint * 0.46) * uGlow * glowOpenScale;
+      vec3 gColor = clamp((goldResting + goldMolten + goldSpecWhite) * lumOpenScale, 0.0, 1.22);
 
       // Restrained warm floor bounce halo
       float auraMask = smoothstep(0.03, 0.52, gTex.a + wTex.a * 0.18) * geoMask * lifeAlpha;
-      vec3 auraColor = vec3(0.94, 0.76, 0.42) * (0.07 + 0.16 * flowEnergy) * uGlow * goldReveal * fullOpenCalm;
+      vec3 auraColor = vec3(0.98, 0.82, 0.46) * (0.09 + 0.21 * flowEnergy) * uGlow * glowOpenScale * goldReveal;
 
       // Composite gold cleanly over soft semi-transparent frosted white
       float outAlpha = gAlpha + wAlpha * (1.0 - gAlpha);
-      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.15;
+      vec3 outPremult = gColor * gAlpha + wColor * wAlpha * (1.0 - gAlpha) + auraColor * auraMask * 0.24;
 
       // Lingering golden starlight dust during dissolve
       if (uDissolve > 0.05 && uDissolve < 0.98) {
@@ -618,7 +632,7 @@
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
   const uniforms = {};
-  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uWhiteOp','uGoldOp','uGoldSpeed','uGlow']
+  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uBloomWave','uWhiteOp','uGoldOp','uGoldSpeed','uGlow']
     .forEach(n => uniforms[n] = gl.getUniformLocation(prog, n));
 
   function loadTexture(url, unit) {
@@ -671,7 +685,8 @@
   function drawProjectorBeam(timeSec) {
     const w = fxCanvas.width, h = fxCanvas.height;
     fxCtx.clearRect(0, 0, w, h);
-    const beamStrength = state.showBeam ? state.beamOp * state.visibility * (1.0 - state.dissolve * 0.92) * Math.min(1, state.door * 3.0) : 0;
+    const beamBloom = 0.52 + 0.48 * state.bloomWave;
+    const beamStrength = state.showBeam ? state.beamOp * beamBloom * state.visibility * (1.0 - state.dissolve * 0.92) * Math.min(1, state.door * 3.0) : 0;
     if (beamStrength <= 0.005) return;
 
     const ex = emitter.x * w, ey = emitter.y * h;
@@ -852,38 +867,72 @@
     lastTs = now;
     const tSec = now / 1000;
 
+    const BLOOM_DELAY = 0.20; // 0.2s calm low-brightness pause after full open
+    const BLOOM_DUR   = 0.70; // smooth hinge-outward brightening wave duration
+
     if (state.mode === 'opening') {
       state.phaseTime += dt;
       const p = Math.min(1, state.phaseTime / state.openDur);
       state.door = easeInOutCubic(p);
       state.visibility = 1.0;
       state.dissolve = 0.0;
-      phaseText.textContent = `迎宾展开中 · ${Math.round(state.door * 68)}°`;
+      state.bloomWave = 0.0;
+      phaseText.textContent = `迎宾展开中（柔光低亮）· ${Math.round(state.door * 68)}°`;
       if (p >= 1) { state.mode = 'holding'; state.phaseTime = 0; }
     } else if (state.mode === 'holding') {
       state.phaseTime += dt;
       state.door = 1.0;
       state.visibility = 1.0;
       state.dissolve = 0.0;
-      const rem = Math.max(0, state.holdDur - state.phaseTime);
-      phaseText.textContent = `全开驻留 · 浮光跃金 (${rem.toFixed(1)}s)`;
+      if (state.phaseTime <= BLOOM_DELAY) {
+        state.bloomWave = 0.0;
+        phaseText.textContent = `全开蓄光 · 柔和低亮`;
+      } else {
+        const bp = Math.min(1, (state.phaseTime - BLOOM_DELAY) / BLOOM_DUR);
+        state.bloomWave = easeInOutCubic(bp);
+        if (bp < 1) {
+          phaseText.textContent = `由转轴向外渐亮 · ${Math.round(state.bloomWave * 100)}%`;
+        } else {
+          const rem = Math.max(0, state.holdDur - state.phaseTime);
+          phaseText.textContent = `全开驻留 · 浮光跃金 (${rem.toFixed(1)}s)`;
+        }
+      }
       if (state.phaseTime >= state.holdDur) { state.mode = 'fading'; state.phaseTime = 0; }
     } else if (state.mode === 'fading') {
       state.phaseTime += dt;
       const p = Math.min(1, state.phaseTime / state.fadeDur);
       state.door = 1.0;
+      state.bloomWave = 1.0;
       state.dissolve = easeInOutCubic(p);
       state.visibility = 1.0 - easeOutQuart(p) * 0.92;
       phaseText.textContent = `缓缓消散中 · ${Math.round((1 - p) * 100)}%`;
       if (p >= 1) {
-        state.visibility = 0.0; state.dissolve = 1.0; state.mode = 'idle';
+        state.visibility = 0.0; state.dissolve = 1.0; state.bloomWave = 0.0; state.mode = 'idle';
         phaseText.textContent = '迎宾结束 · 扇面已消散';
       }
     } else if (state.mode === 'showcase') {
       state.door = 1.0;
       state.visibility = 1.0;
       state.dissolve = 0.0;
+      state.bloomWave = 1.0;
       phaseText.textContent = '全开常亮赏析 · 浮光跃金持续流动';
+    } else if (state.mode === 'manual') {
+      if (state.door >= 0.995) {
+        state.manualFullTime += dt;
+        if (state.manualFullTime <= BLOOM_DELAY) {
+          state.bloomWave = 0.0;
+          phaseText.textContent = `手动全开 68° · 蓄光低亮`;
+        } else {
+          const bp = Math.min(1, (state.manualFullTime - BLOOM_DELAY) / BLOOM_DUR);
+          state.bloomWave = easeInOutCubic(bp);
+          phaseText.textContent = bp < 1
+            ? `手动全开 68° · 由转轴向外渐亮 ${Math.round(state.bloomWave * 100)}%`
+            : `手动全开 68° · 浮光跃金`;
+        }
+      } else {
+        state.manualFullTime = 0.0;
+        state.bloomWave = 0.0;
+      }
     }
 
     syncDoorVisual(state.door);
@@ -897,6 +946,7 @@
     gl.uniform1f(uniforms.uFanRadius, state.fanRadius);
     gl.uniform1f(uniforms.uVisibility, state.visibility);
     gl.uniform1f(uniforms.uDissolve, state.dissolve);
+    gl.uniform1f(uniforms.uBloomWave, state.bloomWave);
     gl.uniform1f(uniforms.uWhiteOp, state.whiteOp);
     gl.uniform1f(uniforms.uGoldOp, state.goldOp);
     gl.uniform1f(uniforms.uGoldSpeed, state.goldSpeed);
@@ -930,22 +980,23 @@
 
   // === Controls ===
   function triggerWelcome() {
-    state.door = 0; state.visibility = 1; state.dissolve = 0;
+    state.door = 0; state.visibility = 1; state.dissolve = 0; state.bloomWave = 0;
     state.phaseTime = 0; state.mode = 'opening';
   }
   document.getElementById('btnPlayWelcome').onclick = triggerWelcome;
   document.getElementById('btnCloseDoor').onclick = () => {
-    state.mode = 'idle'; state.door = 0; state.visibility = 0; state.dissolve = 0;
+    state.mode = 'idle'; state.door = 0; state.visibility = 0; state.dissolve = 0; state.bloomWave = 0; state.manualFullTime = 0;
     phaseText.textContent = '待机 · 车门已关闭';
   };
-  document.getElementById('btnHoldOpen').onclick = () => { state.mode = 'showcase'; };
+  document.getElementById('btnHoldOpen').onclick = () => { state.mode = 'showcase'; state.bloomWave = 1.0; };
 
   rngDoor.addEventListener('input', () => {
     state.mode = 'manual';
     state.door = Number(rngDoor.value) / 1000;
     state.visibility = state.door > 0.005 ? 1.0 : 0.0;
     state.dissolve = 0.0;
-    phaseText.textContent = `手动联动 · 车门 ${Math.round(state.door * 68)}°`;
+    if (state.door < 0.995) { state.manualFullTime = 0; state.bloomWave = 0; }
+    phaseText.textContent = `手动联动（柔光低亮）· 车门 ${Math.round(state.door * 68)}°`;
   });
 
   function bindRange(id, valId, fmt, setter) {
