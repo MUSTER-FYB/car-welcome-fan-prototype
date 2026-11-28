@@ -143,8 +143,8 @@
   <div class="app">
     <div class="stage-wrap" id="stageWrap">
       <video id="carVideo" muted playsinline preload="auto"></video>
-      <img id="fallbackClosed" src="assets/car_closed.png?v=8" alt="" style="opacity:1;" />
-      <img id="fallbackOpen" src="assets/car_open.png?v=8" alt="" style="opacity:0;" />
+      <img id="fallbackClosed" src="assets/car_closed.png?v=9" alt="" style="opacity:1;" />
+      <img id="fallbackOpen" src="assets/car_open.png?v=9" alt="" style="opacity:0;" />
       <canvas id="glCanvas"></canvas>
       <canvas id="fxCanvas"></canvas>
       <canvas id="calibCanvas"></canvas>
@@ -268,9 +268,9 @@
     { x: 0.502, y: 0.865, label: 'M.车门半开弧点(34°)' },
     { x: 0.375, y: 0.822, label: 'B.车门全开端(68°)' }
   ];
-  const DEFAULT_EMITTER = { x: 0.522, y: 0.376, label: '主驾方形投影仪' };
+  const DEFAULT_EMITTER = { x: 0.523, y: 0.363, label: '主驾方形投影仪' };
 
-  const STORAGE_KEY = 'car_fan_welcome_arc_calib_v4';
+  const STORAGE_KEY = 'car_fan_welcome_arc_calib_v5';
   let anchors = DEFAULT_ANCHORS.map(p => ({ ...p }));
   let emitter = { ...DEFAULT_EMITTER };
   try {
@@ -354,10 +354,14 @@
   }
 
   video.addEventListener('loadedmetadata', () => {
-    state.videoReady = true;
-    state.videoDuration = Math.max(0.1, video.duration - 0.05);
+    state.videoDuration = Math.max(0.1, video.duration - 0.04);
     video.pause();
     video.currentTime = doorProgressToVideoNorm(state.door) * state.videoDuration;
+  });
+  video.addEventListener('loadeddata', () => {
+    state.videoReady = true;
+    fallbackClosed.style.opacity = '0';
+    fallbackOpen.style.opacity = '0';
   });
   video.addEventListener('error', () => {
     state.videoReady = false;
@@ -847,7 +851,7 @@
   });
   calibCanvas.addEventListener('pointerup', () => { dragTarget = null; });
 
-  // === Door Video Sync + Seamless 2K Rest-Frame Super-Sharpness ===
+  // === Door Video Sync (Zero-Seam Single-Stream Playback: 0°->68° zero position/scale jump!) ===
   let lastSeekVal = -1;
   function syncDoorVisual(p) {
     const clamped = Math.max(0, Math.min(1, p));
@@ -859,11 +863,9 @@
         video.currentTime = targetTime;
         lastSeekVal = targetTime;
       }
-      // Crossfade smoothly to razor-sharp 2K stills right at full-closed (0..0.05) and full-open (0.94..1.0)!
-      const closedAlpha = 1.0 - Math.min(1, Math.max(0, clamped / 0.05));
-      const openAlpha   = Math.min(1, Math.max(0, (clamped - 0.94) / 0.06));
-      fallbackClosed.style.opacity = closedAlpha.toFixed(3);
-      fallbackOpen.style.opacity   = openAlpha.toFixed(3);
+      // Keep single continuous <video> layer visible across entire 0°..68° range (zero 0°->4° or 66°->68° still-swap jump!)
+      fallbackClosed.style.opacity = '0';
+      fallbackOpen.style.opacity   = '0';
     } else {
       fallbackClosed.style.opacity = '1';
       fallbackOpen.style.opacity = String(clamped);
