@@ -88,14 +88,73 @@
 
     .dock {
       position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-      z-index: 20; width: min(740px, calc(100% - 40px));
+      z-index: 20; width: min(820px, calc(100% - 40px));
       padding: 10px 16px; border-radius: 16px;
-      background: rgba(14, 17, 24, 0.72); backdrop-filter: blur(14px);
+      background: rgba(14, 17, 24, 0.78); backdrop-filter: blur(16px);
       border: 1px solid var(--panel-border);
-      display: flex; flex-direction: column; gap: 8px;
+      display: flex; flex-direction: column; gap: 9px;
       transition: opacity 0.35s ease;
     }
-    .dock-row { display: flex; align-items: center; gap: 12px; }
+    .dock-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .mode-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap;
+    }
+    .seg-group {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: rgba(255,255,255,0.05); padding: 3px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .seg-label {
+      font-size: 11px; color: var(--muted); padding: 0 8px 0 6px; white-space: nowrap;
+    }
+    .seg-btn {
+      appearance: none; border: none; background: transparent; color: var(--muted);
+      padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+    }
+    .seg-btn:hover { color: var(--text); }
+    .seg-btn.active {
+      background: linear-gradient(135deg, rgba(215,177,106,0.28), rgba(241,217,164,0.18));
+      color: var(--gold-bright);
+      box-shadow: inset 0 0 0 1px rgba(230,198,135,0.45);
+    }
+    .drawer-tabs {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      background: rgba(255,255,255,0.05); padding: 3px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .drawer-tab {
+      appearance: none; border: none; background: transparent; color: var(--muted);
+      padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .drawer-tab:hover { color: var(--text); }
+    .drawer-tab.active {
+      background: rgba(230, 198, 135, 0.20); color: var(--gold-bright);
+      box-shadow: inset 0 0 0 1px rgba(230, 198, 135, 0.40);
+    }
+    .drawer-pane { display: flex; flex-direction: column; gap: 11px; }
+    .drawer-pane.hidden { display: none; }
+    .mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .mode-card {
+      appearance: none; border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03); color: var(--muted);
+      border-radius: 10px; padding: 8px 6px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      transition: all 0.2s ease; text-align: center;
+    }
+    .mode-card .mc-ico { font-size: 15px; line-height: 1.1; }
+    .mode-card .mc-title { font-size: 11.5px; font-weight: 600; color: var(--text); }
+    .mode-card .mc-sub { font-size: 10px; color: var(--muted); }
+    .mode-card:hover { border-color: rgba(230,198,135,0.45); background: rgba(230,198,135,0.08); }
+    .mode-card.active {
+      border-color: var(--gold); background: rgba(230,198,135,0.16);
+      box-shadow: 0 0 14px rgba(230,198,135,0.18);
+    }
+    .mode-card.active .mc-title { color: var(--gold-bright); }
+    .stage-wrap.step-ready { cursor: pointer; }
     .slider-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
     .slider-label { font-size: 12px; color: var(--muted); white-space: nowrap; min-width: 84px; }
     .slider-val { font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
@@ -158,7 +217,7 @@
         <div class="top-actions">
           <button class="btn" id="btnCalib">🎯 拖拽校准车门弧线</button>
           <button class="btn" id="btnRecord">⏺ 录制演示视频</button>
-          <button class="btn active" id="btnDrawer">⚙ 参数面板</button>
+          <button class="btn active" id="btnDrawer">✦ 迎宾模式 & 参数</button>
           <button class="btn" id="btnClean">⛶ 纯净演示 (H)</button>
         </div>
       </div>
@@ -166,6 +225,85 @@
       <button class="btn clean-exit" id="btnExitClean">退出纯净演示 (H)</button>
 
       <div class="drawer" id="drawer">
+        <div class="drawer-tabs">
+          <button class="drawer-tab active" id="tabMode">✦ 迎宾模式</button>
+          <button class="drawer-tab" id="tabParams">⚙ 光学参数</button>
+        </div>
+
+        <div class="drawer-pane" id="paneMode">
+          <h2>场景模式选择</h2>
+          <div class="mode-cards">
+            <button class="mode-card active" data-scene="welcome">
+              <span class="mc-ico">✨</span>
+              <span class="mc-title">开门迎宾</span>
+              <span class="mc-sub">展扇流金</span>
+            </button>
+            <button class="mode-card" data-scene="farewell">
+              <span class="mc-ico">🌙</span>
+              <span class="mc-title">离车告别</span>
+              <span class="mc-sub">反向收扇</span>
+            </button>
+            <button class="mode-card" data-scene="showcase">
+              <span class="mc-ico">✦</span>
+              <span class="mc-title">常亮赏析</span>
+              <span class="mc-sub">随时踩踏</span>
+            </button>
+          </div>
+
+          <h2>落脚涟漪 · 流金激发</h2>
+          <div class="check-row">
+            <span>启用扇面踩踏交互（点击/划过）</span>
+            <input type="checkbox" id="chkRipple" checked />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-head"><span>水波涟漪折射强度</span><span id="valRippleAmp">100%</span></div>
+            <input type="range" id="rngRippleAmp" min="20" max="180" value="100" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-head"><span>流金脉络激发亮度</span><span id="valRippleExcite">115%</span></div>
+            <input type="range" id="rngRippleExcite" min="20" max="200" value="115" />
+          </div>
+          <button class="btn" id="btnSimStepDrawer" style="justify-content:center;">👣 在扇面中心模拟落脚</button>
+
+          <h2>离车告别 · 反向收扇</h2>
+          <div class="check-row">
+            <span>收扇前自动触发告别落脚涟漪</span>
+            <input type="checkbox" id="chkFarewellStep" checked />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-head"><span>反向收扇关门时长</span><span id="valFarewellDur">2.0 s</span></div>
+            <input type="range" id="rngFarewellDur" min="10" max="40" value="20" />
+          </div>
+
+          <h2>天气自适应</h2>
+          <div class="mode-cards">
+            <button class="mode-card active" data-weather="clear">
+              <span class="mc-ico">✨</span>
+              <span class="mc-title">晴夜标准</span>
+              <span class="mc-sub">经典流金</span>
+            </button>
+            <button class="mode-card" data-weather="rain">
+              <span class="mc-ico">🌧</span>
+              <span class="mc-title">雨夜水波</span>
+              <span class="mc-sub">雨点微澜</span>
+            </button>
+            <button class="mode-card" data-weather="snow">
+              <span class="mc-ico">❄</span>
+              <span class="mc-title">霜雪星尘</span>
+              <span class="mc-sub">冰晶微光</span>
+            </button>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-head"><span>天气粒子与地面质感强度</span><span id="valWeatherInt">100%</span></div>
+            <input type="range" id="rngWeatherInt" min="20" max="160" value="100" />
+          </div>
+
+          <div class="hint">
+            <b>踩踏演示</b>：在扇面展开或常亮时，直接用鼠标<b>点击或划过地面扇面</b>即可触发真实 3D 透视水波涟漪与流金脉络激发！
+          </div>
+        </div>
+
+        <div class="drawer-pane hidden" id="paneParams">
         <h2>扇面尺寸与无轴边缘</h2>
         <div class="ctrl">
           <div class="ctrl-head"><span>扇面放大倍率（沿车门圆弧）</span><span id="valRadius">1.08x</span></div>
@@ -228,13 +366,28 @@
           <button class="btn" id="btnCopyAE" style="flex:1; justify-content:center;">复制校准坐标</button>
           <button class="btn" id="btnResetParams" style="flex:1 1 100%; justify-content:center;">恢复已保存默认参数</button>
         </div>
+        </div>
       </div>
 
       <div class="dock">
+        <div class="mode-bar">
+          <div class="seg-group" id="dockSceneGroup">
+            <span class="seg-label">迎宾模式</span>
+            <button class="seg-btn active" data-scene="welcome">✨ 开门迎宾</button>
+            <button class="seg-btn" data-scene="farewell">🌙 离车告别</button>
+            <button class="seg-btn" data-scene="showcase">✦ 常亮赏析</button>
+          </div>
+          <div class="seg-group" id="dockWeatherGroup">
+            <span class="seg-label">天气自适应</span>
+            <button class="seg-btn active" data-weather="clear">晴夜</button>
+            <button class="seg-btn" data-weather="rain">🌧 雨夜</button>
+            <button class="seg-btn" data-weather="snow">❄ 霜雪</button>
+          </div>
+        </div>
         <div class="dock-row">
           <button class="btn primary" id="btnPlayWelcome">▶ 模拟解锁开门迎宾</button>
-          <button class="btn" id="btnCloseDoor">↺ 关门复位</button>
-          <button class="btn" id="btnHoldOpen">✦ 全开常亮赏析</button>
+          <button class="btn" id="btnSimStep">👣 模拟落脚</button>
+          <button class="btn" id="btnCloseDoor">↺ 复位</button>
           <div class="slider-wrap">
             <span class="slider-label">车门开合角度</span>
             <input type="range" id="rngDoor" min="0" max="1000" value="0" />
@@ -295,7 +448,15 @@
     holdDur: 2.3,
     fadeDur: 1.8,
     showBeam: true,
-    beamOp: 0.42
+    beamOp: 0.42,
+    sceneMode: 'welcome',       // 'welcome' | 'farewell' | 'showcase'
+    weather: 'clear',           // 'clear' | 'rain' | 'snow'
+    weatherIntensity: 1.0,
+    rippleEnabled: true,
+    rippleAmp: 1.0,
+    rippleExcite: 1.15,
+    farewellDur: 2.0,
+    farewellAutoStep: true
   };
   let savedParams = {};
   try { savedParams = JSON.parse(localStorage.getItem(PARAMS_STORAGE_KEY) || '{}') || {}; } catch {}
@@ -305,8 +466,10 @@
     visibility: 0.0,
     dissolve: 0.0,
     bloomWave: 0.0,    // 0 = low opacity/brightness during opening; 0->1 radial bloom from hinge outward
+    farewellWave: 0.0, // 0..1 outer-arc-inward light gathering wave during departure farewell
+    farewellStepped: false,
     manualFullTime: 0.0,
-    mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
+    mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'farewell' | 'manual' | 'showcase'
     phaseTime: 0.0,
     ...DEFAULT_PARAMS,
     ...savedParams,
@@ -314,6 +477,20 @@
     videoReady: false,
     videoDuration: 4.0
   };
+
+  // Interactive footstep ripples (up to 4 simultaneous perspective ripples on the 3D floor plane)
+  const MAX_RIPPLES = 4;
+  const ripples = [];
+  const ripplePosUniform = new Float32Array(MAX_RIPPLES * 2);
+  const rippleAgeUniform = new Float32Array(MAX_RIPPLES);
+  const stepSparks = [];
+  const weatherMotes = Array.from({ length: 42 }, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    speed: 0.45 + Math.random() * 0.75,
+    size: 0.7 + Math.random() * 1.4,
+    phase: Math.random() * Math.PI * 2
+  }));
 
   // DOM
   const stageWrap = document.getElementById('stageWrap');
@@ -443,6 +620,47 @@
     return { x: x / w, y: y / w };
   }
 
+  function projectScreenToFloor(nx, ny) {
+    const m = invH_floor;
+    const x = m[0]*nx + m[3]*ny + m[6];
+    const y = m[1]*nx + m[4]*ny + m[7];
+    const w = m[2]*nx + m[5]*ny + m[8];
+    if (w <= 1e-5) return null;
+    return { x: x / w, y: y / w };
+  }
+
+  function isPointInFanFloor(fx, fy, pad = 0.08) {
+    const r = Math.hypot(fx, fy);
+    const curAng = 0.035 + (MAX_DOOR_RAD - 0.035) * state.door;
+    const ang = Math.atan2(fy, fx);
+    return r >= 0.06 * state.fanRadius && r <= state.fanRadius * (1.0 + pad) && ang >= -pad && ang <= curAng + pad;
+  }
+
+  function spawnFootstep(fx, fy) {
+    const nowSec = performance.now() / 1000;
+    ripples.push({ fx, fy, startTime: nowSec });
+    while (ripples.length > MAX_RIPPLES) ripples.shift();
+
+    // Emit delicate champagne-gold sparks lifting off the stepped veins
+    const count = state.weather === 'rain' ? 14 : 18;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 0.08 + Math.random() * 0.22;
+      stepSparks.push({
+        fx: fx + (Math.random() - 0.5) * 0.06,
+        fy: fy + (Math.random() - 0.5) * 0.06,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd,
+        lift: 0,
+        vlift: 0.014 + Math.random() * 0.026,
+        age: 0,
+        life: 0.75 + Math.random() * 0.75,
+        size: 1.2 + Math.random() * 2.2,
+        warm: state.weather !== 'rain' || Math.random() > 0.32
+      });
+    }
+  }
+
   // === WebGL2 / WebGL Metric Polar Fan Renderer (with Mipmaps to eliminate narrow-angle aliasing streaks!) ===
   const glOpts = { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true };
   const gl = glCanvas.getContext('webgl2', glOpts) || glCanvas.getContext('webgl', glOpts);
@@ -475,6 +693,13 @@
     uniform float uGoldOp;
     uniform float uGoldSpeed;
     uniform float uGlow;
+    uniform vec2 uRipplePos[4];
+    uniform float uRippleAge[4];
+    uniform float uRippleAmp;
+    uniform float uRippleExcite;
+    uniform float uWeatherMode;  // 0 = clear, 1 = rain, 2 = snow
+    uniform float uWeatherInt;
+    uniform float uFarewellWave; // 0..1 outer-to-hinge inward gathering wave
 
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -515,37 +740,100 @@
       float sectorMask = sillEdgeMask * doorEdgeMask;
       if (sectorMask <= 0.002) discard;
 
-      // Smooth axis-free inner fade (no fan handle/rivet, light radiates cleanly from under the door hinge!)
-      float innerFade = smoothstep(0.07 * uFanRadius, 0.22 * uFanRadius, rFloor);
+      // === Authentic Chinese Folding Fan (折扇) Annular Sector Geometry ===
+      // 1) Crisp concentric inner fan-paper arc near hinge O (eliminates pointed "feather quill" stem!)
+      float innerArcR = 0.185 * uFanRadius;
+      float innerFade = smoothstep(innerArcR * 0.90, innerArcR * 1.06, rFloor);
 
-      // Distinctive yet gracefully ROUNDED folding-fan petal silhouette along the door-opening arc!
-      // 8 plump rounded cloud-fan petals (~5.8% depth): clearly pleated fan shape, zero spiky sharpness!
+      // 2) Sleek, continuous folding-fan outer circular arc (eliminates puffy feather-like scallops!)
+      //    Ultra-subtle 0.6% pleated-fan chord tension across 12 silk folds (classic 折扇 silhouette)
       float normA = clamp(ang / curAng, 0.0, 1.0);
-      float petalPhase = abs(sin(normA * 3.14159265 * 8.0));
-      // pow(sin, 0.58) creates smooth broad rounded domes with gentle defined valleys (never sharp needles!)
-      float roundedLobe = pow(petalPhase, 0.58);
-      float arcLimit = uFanRadius * (0.935 + 0.065 * roundedLobe);
-      float outerMask = 1.0 - smoothstep(arcLimit * 0.968, arcLimit * 1.005, rFloor);
+      float pleatNum = 12.0;
+      float pleatWave = abs(sin(normA * 3.14159265 * pleatNum));
+      float chordEdge = 1.0 - 0.006 * pow(1.0 - pleatWave, 1.6);
+      float arcLimit = uFanRadius * chordEdge;
+      float outerMask = 1.0 - smoothstep(arcLimit * 0.986, arcLimit * 1.003, rFloor);
       float geoMask = sectorMask * innerFade * outerMask;
       if (geoMask <= 0.002) discard;
 
       // 2. Map metric floor polar sector (rFloor, ang) -> canonical 2K axis-free fan texture UV
-      //    Prevent extreme angular compression when door just cracks open (avoids dense radial streak aliasing!):
-      //    Below ~22 deg, combine gentle pleat unfolding with smooth angular reveal so ribs never crush into needles.
-      float unfoldSpan = max(curAng, 0.38);
+      //    Natural fan proportions (less angular squeeze so cloud ribbons read as silk fan art, not narrow feather barbs!)
+      float unfoldSpan = max(curAng, 0.42);
       float normA_unfold = clamp(ang / unfoldSpan, 0.0, 1.0);
-      float texAng = mix(-1.15, 1.15, normA_unfold);
+      float texAng = mix(-0.96, 0.96, normA_unfold);
 
-      float normR = clamp((rFloor / arcLimit - 0.07) / 0.93, 0.0, 1.0);
-      float texR = mix(0.165, 0.675, normR);
+      float normR = clamp((rFloor - innerArcR) / max(0.01, arcLimit - innerArcR), 0.0, 1.0);
+      float texR = mix(0.18, 0.715, normR);
 
       // Reconstruct UV in 2560x1440 fan texture (pivot at 0.493, 0.877; height-normalized radius)
       vec2 pivotUV = vec2(0.493, 0.877);
-      vec2 sampleUV = vec2(
+      vec2 baseUV = vec2(
         pivotUV.x + sin(texAng) * texR * (9.0 / 16.0),
         pivotUV.y - cos(texAng) * texR
       );
-      if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) discard;
+      if (baseUV.x < 0.0 || baseUV.x > 1.0 || baseUV.y < 0.0 || baseUV.y > 1.0) discard;
+
+      // === Interactive Footstep Ripples (True 3D Floor Plane Water Wave + Golden Vein Excitation) ===
+      float isRain = smoothstep(0.5, 0.9, uWeatherMode) * (1.0 - smoothstep(1.1, 1.5, uWeatherMode));
+      float isSnow = smoothstep(1.5, 1.9, uWeatherMode);
+
+      vec2 uvRippleOffset = vec2(0.0);
+      float rippleVeinEnergy = 0.0;
+      float rippleWhiteCaustic = 0.0;
+      float footCoreTotal = 0.0;
+
+      for (int i = 0; i < 4; i++) {
+        float age = uRippleAge[i];
+        if (age >= 0.0 && age < 2.6) {
+          vec2 dVec = floorXY - uRipplePos[i];
+          float dist = length(dVec);
+          float speed = mix(0.45, 0.58, isRain);
+          float waveR = age * speed;
+          float life = exp(-age * 1.12) * smoothstep(2.6, 1.85, age);
+
+          // Multi-ring perspective water wave
+          float ring1 = exp(-pow((dist - waveR) * 16.0, 2.0));
+          float ring2 = exp(-pow((dist - max(0.0, waveR - 0.105)) * 22.0, 2.0)) * 0.58;
+          float ring3 = exp(-pow((dist - max(0.0, waveR - 0.205)) * 28.0, 2.0)) * (0.24 + 0.30 * isRain);
+          float ring = (ring1 + ring2 + ring3) * life;
+
+          // Optical refraction displacement across white silk & gold veins
+          vec2 dir = dist > 0.001 ? dVec / dist : vec2(0.0);
+          float refractWave = sin((dist - waveR) * 38.0) * exp(-abs(dist - waveR) * 10.5) * life;
+          uvRippleOffset += dir * refractWave * 0.015 * uRippleAmp * (1.0 + 0.42 * isRain);
+
+          // Gentle underfoot silk recession + warm cradling halo
+          float footPresence = smoothstep(0.0, 0.08, age) * exp(-age * 1.9);
+          float footCore = exp(-pow(dist / 0.11, 2.0)) * footPresence;
+          float footHalo = exp(-pow((dist - 0.13) / 0.055, 2.0)) * footPresence;
+          footCoreTotal = max(footCoreTotal, footCore);
+
+          rippleVeinEnergy += (ring * 1.42 + footHalo * 0.78) * uRippleExcite;
+          rippleWhiteCaustic += (ring * (0.26 + 0.26 * isRain) + footHalo * 0.16) * uRippleAmp;
+        }
+      }
+
+      // === Weather Adaptive: Rainy-Night Procedural Micro-Ripples on Ground Plane ===
+      float rainSpark = 0.0;
+      if (isRain > 0.01) {
+        vec2 rainGrid = floorXY * 5.2;
+        vec2 cellId = floor(rainGrid);
+        vec2 cellUv = fract(rainGrid) - 0.5;
+        float rnd = hash(cellId);
+        float dropCycle = fract(uTime * (0.65 + 0.45 * rnd) + rnd * 13.7);
+        vec2 dropCenter = (vec2(hash(cellId + 17.3), hash(cellId + 41.9)) - 0.5) * 0.55;
+        vec2 dd = cellUv - dropCenter;
+        float dDrop = length(dd);
+        float dropR = dropCycle * 0.48;
+        float dropFade = (1.0 - dropCycle) * smoothstep(0.0, 0.08, dropCycle);
+        float dropRing = exp(-pow((dDrop - dropR) * 24.0, 2.0)) * dropFade * isRain * uWeatherInt;
+        uvRippleOffset += (dDrop > 0.001 ? dd / dDrop : vec2(0.0)) * dropRing * 0.0055;
+        rainSpark = dropRing;
+        rippleWhiteCaustic += dropRing * 0.34;
+        rippleVeinEnergy += dropRing * 0.65;
+      }
+
+      vec2 sampleUV = clamp(baseUV + uvRippleOffset, vec2(0.001), vec2(0.999));
 
       vec4 wTex = texture2D(uWhiteTex, sampleUV);
       vec4 gTex = texture2D(uGoldTex, sampleUV);
@@ -583,8 +871,18 @@
 
       float flowEnergy = clamp(radialCrest * 0.82 + diagSweep * 1.05 + fineRipple * 0.40, 0.0, 1.5);
 
-      // Soft pleat luminance contour matching the 8 rounded fan petals (adds graceful silk fold depth)
-      float pleatShade = 0.88 + 0.14 * roundedLobe;
+      // Subtle authentic 12-fold accordion silk-pleat light/shadow across the folding fan body (折扇折痕明暗)
+      float pleatFacet = sin(normA * 3.14159265 * pleatNum * 2.0);
+      float pleatShade = 0.90 + 0.11 * pleatFacet;
+
+      // Delicate continuous folding-fan border trim (sleek outer arc + inner arc + two straight side ribs 大骨)
+      // Gives unmistakable folding-fan silhouette even across hollow cloud cutouts, without hiding floor transparency!
+      float outerRimLine = smoothstep(0.964, 0.986, normR) * (1.0 - smoothstep(0.992, 1.004, normR));
+      float outerSilkBand = smoothstep(0.905, 0.978, normR) * (1.0 - smoothstep(0.992, 1.004, normR));
+      float innerRimLine = smoothstep(0.00, 0.018, normR) * (1.0 - smoothstep(0.022, 0.052, normR));
+      float sideRibMask = (1.0 - smoothstep(0.0, 0.020, normA)) + smoothstep(0.980, 1.0, normA);
+      float fanGoldTrim = clamp(outerRimLine * 0.88 + innerRimLine * 0.55 + sideRibMask * 0.58, 0.0, 0.92);
+      float fanSilkRim  = clamp(outerSilkBand * 0.42 + innerRimLine * 0.24, 0.0, 0.45);
 
       // Two-stage brightness choreography (zero startup dead-zone: hinge O begins glowing the exact instant uBloomWave > 0)
       float bloomActive = smoothstep(0.0, 0.015, uBloomWave);
@@ -598,20 +896,40 @@
       float lumOpenScale   = mix(0.56, 1.0, radialBloom);
       float glowOpenScale  = mix(0.32, 1.0, radialBloom);
 
-      // Semi-transparent pearl-white frosted fan layer (low opacity while opening -> full luminous frost after 0.2s radial bloom)
-      float wAlpha = wTex.a * uWhiteOp * whiteFadeIn * whiteOpenScale * geoMask * lifeAlpha;
-      vec3 wColor = wStraight * pleatShade * lumOpenScale * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow * glowOpenScale + 0.10 * wakeCrest);
+      // Departure farewell inward-converging light wave (outer arc -> door hinge O)
+      float fwCrest = 0.0;
+      if (uFarewellWave > 0.001 && uFarewellWave < 0.999) {
+        float fwPos = 1.08 - uFarewellWave * 1.18;
+        fwCrest = exp(-pow((normR - fwPos) * 5.2, 2.0)) * sin(uFarewellWave * 3.14159265);
+      }
 
-      // Refined flowing champagne-gold veins (restrained during opening -> vibrant liquid-gold wave radiating outward from hinge)
-      float gAlpha = gTex.a * uGoldOp * goldReveal * goldOpenScale * geoMask * lifeAlpha;
-      vec3 goldResting = gStraight * vec3(0.78, 0.68, 0.50);
-      vec3 goldMolten = vec3(1.0, 0.87, 0.56) * (radialCrest * 0.56 + fineRipple * 0.28 + wakeCrest * 0.45) * uGlow * glowOpenScale;
-      vec3 goldSpecWhite = vec3(1.0, 0.96, 0.84) * (diagSweep * 0.66 + glint * 0.46) * uGlow * glowOpenScale;
-      vec3 gColor = clamp((goldResting + goldMolten + goldSpecWhite) * lumOpenScale, 0.0, 1.22);
+      // Snowy frost micro-glitter on frosted silk
+      float snowFrost = isSnow * uWeatherInt * pow(noise(sampleUV * 115.0 + vec2(uTime * 0.18, -uTime * 0.14)), 8.5) * 2.8;
 
-      // Restrained warm floor bounce halo
-      float auraMask = smoothstep(0.03, 0.52, gTex.a + wTex.a * 0.18) * geoMask * lifeAlpha;
-      vec3 auraColor = vec3(0.98, 0.82, 0.46) * (0.09 + 0.21 * flowEnergy) * uGlow * glowOpenScale * goldReveal;
+      // Semi-transparent pearl-white frosted fan layer + continuous folding-fan silk edge
+      float wBaseA = max(wTex.a, fanSilkRim);
+      vec3  wBaseRGB = mix(vec3(0.92, 0.91, 0.88), wStraight, smoothstep(0.04, 0.25, wTex.a));
+      float wAlpha = wBaseA * uWhiteOp * whiteFadeIn * whiteOpenScale * geoMask * lifeAlpha * (1.0 - 0.42 * footCoreTotal);
+      vec3 wBase = wBaseRGB * pleatShade * lumOpenScale * (0.94 + 0.11 * (radialCrest * 0.5 + diagSweep * 0.6) * uGlow * glowOpenScale + 0.10 * wakeCrest + 0.18 * fwCrest);
+      vec3 wWeatherTint = mix(vec3(1.0), vec3(0.90, 0.96, 1.08), isRain * 0.42 * uWeatherInt);
+      wWeatherTint = mix(wWeatherTint, vec3(0.94, 0.98, 1.06), isSnow * 0.45 * uWeatherInt);
+      vec3 causticTint = mix(vec3(1.0, 0.95, 0.84), vec3(0.82, 0.93, 1.0), isRain);
+      vec3 wColor = wBase * wWeatherTint + causticTint * rippleWhiteCaustic + vec3(0.92, 0.97, 1.0) * snowFrost * 0.65;
+
+      // Refined flowing champagne-gold veins + delicate continuous folding-fan gold rim & side ribs
+      float gBaseA = max(gTex.a, fanGoldTrim * 0.65);
+      vec3  gBaseRGB = mix(vec3(0.95, 0.82, 0.52), gStraight, smoothstep(0.05, 0.30, gTex.a));
+      float gAlpha = gBaseA * uGoldOp * goldReveal * goldOpenScale * geoMask * lifeAlpha;
+      vec3 goldResting = gBaseRGB * mix(vec3(0.78, 0.68, 0.50), vec3(0.82, 0.78, 0.68), isSnow * 0.35 * uWeatherInt);
+      float veinSpark = pow(noise(sampleUV * 96.0 + vec2(uTime * 1.4, -uTime * 1.9)), 5.8) * 3.8 * rippleVeinEnergy;
+      vec3 goldMolten = vec3(1.0, 0.87, 0.56) * ((radialCrest * 0.56 + fineRipple * 0.28 + wakeCrest * 0.45 + fwCrest * 0.62) * uGlow * glowOpenScale + rippleVeinEnergy * 0.72);
+      vec3 goldSpecWhite = vec3(1.0, 0.96, 0.84) * ((diagSweep * 0.66 + glint * 0.46 + fwCrest * 0.32) * uGlow * glowOpenScale + rippleVeinEnergy * 0.34 + veinSpark * 0.52);
+      vec3 gColor = clamp((goldResting + goldMolten + goldSpecWhite) * lumOpenScale, 0.0, 1.38);
+
+      // Restrained warm floor bounce halo + ripple ring floor sheen
+      float auraMask = smoothstep(0.03, 0.52, gBaseA + wBaseA * 0.18) * geoMask * lifeAlpha;
+      vec3 auraColor = vec3(0.98, 0.82, 0.46) * ((0.09 + 0.21 * flowEnergy + 0.26 * fwCrest) * uGlow * glowOpenScale + rippleVeinEnergy * 0.38) * goldReveal;
+      auraColor += vec3(0.76, 0.89, 1.0) * rainSpark * 0.25;
 
       // Composite gold cleanly over soft semi-transparent frosted white
       float outAlpha = gAlpha + wAlpha * (1.0 - gAlpha);
@@ -653,8 +971,10 @@
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
   const uniforms = {};
-  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uBloomWave','uWhiteOp','uGoldOp','uGoldSpeed','uGlow']
+  ['uWhiteTex','uGoldTex','uInvFloorH','uTime','uDoor','uMaxAngle','uFanRadius','uVisibility','uDissolve','uBloomWave','uWhiteOp','uGoldOp','uGoldSpeed','uGlow','uRippleAmp','uRippleExcite','uWeatherMode','uWeatherInt','uFarewellWave']
     .forEach(n => uniforms[n] = gl.getUniformLocation(prog, n));
+  uniforms.uRipplePos = gl.getUniformLocation(prog, 'uRipplePos[0]');
+  uniforms.uRippleAge = gl.getUniformLocation(prog, 'uRippleAge[0]');
 
   function loadTexture(url, unit) {
     const tex = gl.createTexture();
@@ -704,13 +1024,12 @@
   function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
   function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
-  // === Soft Volumetric Projector Beam from Square Dashboard Projector ===
-  function drawProjectorBeam(timeSec) {
+  // === Soft Volumetric Projector Beam + Footstep Gold Sparks + Weather Adaptive FX ===
+  function drawProjectorBeam(timeSec, dt) {
     const w = fxCanvas.width, h = fxCanvas.height;
     fxCtx.clearRect(0, 0, w, h);
     const beamBloom = 0.52 + 0.48 * state.bloomWave;
     const beamStrength = state.showBeam ? state.beamOp * beamBloom * state.visibility * (1.0 - state.dissolve * 0.92) * Math.min(1, state.door * 3.0) : 0;
-    if (beamStrength <= 0.005) return;
 
     const ex = emitter.x * w, ey = emitter.y * h;
     const curAng = 0.035 + (MAX_DOOR_RAD - 0.035) * state.door;
@@ -722,36 +1041,113 @@
     fxCtx.save();
     fxCtx.globalCompositeOperation = 'screen';
 
-    // Soft atmospheric volumetric light cone
-    fxCtx.save();
-    fxCtx.filter = `blur(${Math.max(16, Math.round(w * 0.018))}px)`;
-    const grad = fxCtx.createLinearGradient(ex, ey, pMid.x * w, pMid.y * h);
-    const pulse = 0.92 + 0.08 * Math.sin(timeSec * 2.4);
-    grad.addColorStop(0.0, `rgba(255, 224, 158, ${0.62 * beamStrength * pulse})`);
-    grad.addColorStop(0.30, `rgba(244, 206, 132, ${0.26 * beamStrength * pulse})`);
-    grad.addColorStop(0.78, `rgba(232, 192, 118, ${0.09 * beamStrength})`);
-    grad.addColorStop(1.0, `rgba(232, 192, 118, 0.0)`);
+    if (beamStrength > 0.005) {
+      // Soft atmospheric volumetric light cone
+      fxCtx.save();
+      fxCtx.filter = `blur(${Math.max(16, Math.round(w * 0.018))}px)`;
+      const grad = fxCtx.createLinearGradient(ex, ey, pMid.x * w, pMid.y * h);
+      const pulse = 0.92 + 0.08 * Math.sin(timeSec * 2.4);
+      const c0 = state.weather === 'rain' ? '235, 232, 210' : (state.weather === 'snow' ? '242, 246, 255' : '255, 224, 158');
+      const c1 = state.weather === 'rain' ? '210, 218, 225' : (state.weather === 'snow' ? '220, 232, 248' : '244, 206, 132');
+      grad.addColorStop(0.0, `rgba(${c0}, ${0.62 * beamStrength * pulse})`);
+      grad.addColorStop(0.30, `rgba(${c1}, ${0.26 * beamStrength * pulse})`);
+      grad.addColorStop(0.78, `rgba(232, 192, 118, ${0.09 * beamStrength})`);
+      grad.addColorStop(1.0, `rgba(232, 192, 118, 0.0)`);
 
-    fxCtx.beginPath();
-    fxCtx.moveTo(ex, ey);
-    fxCtx.lineTo(pDoor.x * w, pDoor.y * h);
-    fxCtx.lineTo(pMid.x * w, pMid.y * h);
-    fxCtx.lineTo(pSill.x * w, pSill.y * h);
-    fxCtx.closePath();
-    fxCtx.fillStyle = grad;
-    fxCtx.fill();
-    fxCtx.restore();
+      fxCtx.beginPath();
+      fxCtx.moveTo(ex, ey);
+      fxCtx.lineTo(pDoor.x * w, pDoor.y * h);
+      fxCtx.lineTo(pMid.x * w, pMid.y * h);
+      fxCtx.lineTo(pSill.x * w, pSill.y * h);
+      fxCtx.closePath();
+      fxCtx.fillStyle = grad;
+      fxCtx.fill();
+      fxCtx.restore();
 
-    // Soft warm breathing halo on the user's rounded-square dashboard projector
-    const lensR = Math.max(18, w * 0.025);
-    const lensGrad = fxCtx.createRadialGradient(ex, ey, 0, ex, ey, lensR);
-    lensGrad.addColorStop(0.0, `rgba(255, 244, 210, ${0.88 * beamStrength * pulse})`);
-    lensGrad.addColorStop(0.38, `rgba(245, 202, 120, ${0.40 * beamStrength * pulse})`);
-    lensGrad.addColorStop(1.0, 'rgba(245, 202, 120, 0)');
-    fxCtx.fillStyle = lensGrad;
-    fxCtx.beginPath();
-    fxCtx.arc(ex, ey, lensR, 0, Math.PI * 2);
-    fxCtx.fill();
+      // Soft warm breathing halo on the user's rounded-square dashboard projector
+      const lensR = Math.max(18, w * 0.025);
+      const lensGrad = fxCtx.createRadialGradient(ex, ey, 0, ex, ey, lensR);
+      lensGrad.addColorStop(0.0, `rgba(255, 244, 210, ${0.88 * beamStrength * pulse})`);
+      lensGrad.addColorStop(0.38, `rgba(245, 202, 120, ${0.40 * beamStrength * pulse})`);
+      lensGrad.addColorStop(1.0, 'rgba(245, 202, 120, 0)');
+      fxCtx.fillStyle = lensGrad;
+      fxCtx.beginPath();
+      fxCtx.arc(ex, ey, lensR, 0, Math.PI * 2);
+      fxCtx.fill();
+    }
+
+    // Footstep golden sparks lifting off the fan
+    for (let i = stepSparks.length - 1; i >= 0; i--) {
+      const sp = stepSparks[i];
+      sp.age += dt;
+      if (sp.age >= sp.life) { stepSparks.splice(i, 1); continue; }
+      sp.fx += sp.vx * dt;
+      sp.fy += sp.vy * dt;
+      sp.vx *= Math.pow(0.28, dt);
+      sp.vy *= Math.pow(0.28, dt);
+      sp.lift += sp.vlift * dt;
+      sp.vlift *= Math.pow(0.55, dt);
+      const p = projectFloorToScreen(sp.fx, sp.fy);
+      const sx = p.x * w;
+      const sy = p.y * h - sp.lift * h;
+      const fade = Math.sin((sp.age / sp.life) * Math.PI);
+      const rad = sp.size * (w / 1280) * (0.7 + 0.5 * fade);
+      const g = fxCtx.createRadialGradient(sx, sy, 0, sx, sy, rad * 3.2);
+      if (sp.warm) {
+        g.addColorStop(0, `rgba(255, 248, 224, ${0.95 * fade})`);
+        g.addColorStop(0.4, `rgba(244, 205, 122, ${0.55 * fade})`);
+        g.addColorStop(1, 'rgba(244, 205, 122, 0)');
+      } else {
+        g.addColorStop(0, `rgba(235, 248, 255, ${0.90 * fade})`);
+        g.addColorStop(0.45, `rgba(170, 215, 255, ${0.42 * fade})`);
+        g.addColorStop(1, 'rgba(170, 215, 255, 0)');
+      }
+      fxCtx.fillStyle = g;
+      fxCtx.beginPath();
+      fxCtx.arc(sx, sy, rad * 3.2, 0, Math.PI * 2);
+      fxCtx.fill();
+    }
+
+    // Weather adaptive atmospheric streaks/motes (Rain / Snow)
+    if (state.weather !== 'clear') {
+      const wInt = state.weatherIntensity;
+      const litBoost = 0.35 + 0.65 * Math.min(1, beamStrength * 2.2 + state.visibility * 0.45);
+      for (let i = 0; i < weatherMotes.length; i++) {
+        const m = weatherMotes[i];
+        if (state.weather === 'rain') {
+          m.y += dt * m.speed * 1.35 * (0.7 + 0.4 * wInt);
+          m.x -= dt * 0.14 * m.speed;
+          if (m.y > 1.05) { m.y = -0.05; m.x = Math.random() * 1.15; }
+          if (m.x < -0.05) m.x = 1.05;
+          const sx = m.x * w, sy = m.y * h;
+          const nearBeam = Math.max(0.25, 1.0 - Math.hypot(m.x - 0.50, m.y - 0.68) * 1.6);
+          const alpha = Math.min(0.42, 0.16 * wInt * litBoost * nearBeam);
+          const len = (14 + 16 * m.size) * (h / 1080);
+          fxCtx.strokeStyle = `rgba(218, 234, 255, ${alpha})`;
+          fxCtx.lineWidth = Math.max(0.8, 1.0 * (w / 1400));
+          fxCtx.beginPath();
+          fxCtx.moveTo(sx, sy);
+          fxCtx.lineTo(sx - len * 0.14, sy + len);
+          fxCtx.stroke();
+        } else if (state.weather === 'snow') {
+          m.y += dt * m.speed * 0.14 * (0.7 + 0.4 * wInt);
+          m.x += Math.sin(timeSec * 1.2 + m.phase) * dt * 0.025;
+          if (m.y > 1.04) { m.y = -0.04; m.x = Math.random(); }
+          const sx = m.x * w, sy = m.y * h;
+          const twinkle = 0.55 + 0.45 * Math.sin(timeSec * 3.0 + m.phase);
+          const alpha = Math.min(0.65, 0.34 * wInt * litBoost * twinkle);
+          const rad = (1.4 + 1.8 * m.size) * (w / 1400);
+          const g = fxCtx.createRadialGradient(sx, sy, 0, sx, sy, rad * 2.4);
+          g.addColorStop(0, `rgba(246, 250, 255, ${alpha})`);
+          g.addColorStop(0.5, `rgba(220, 236, 255, ${alpha * 0.4})`);
+          g.addColorStop(1, 'rgba(220, 236, 255, 0)');
+          fxCtx.fillStyle = g;
+          fxCtx.beginPath();
+          fxCtx.arc(sx, sy, rad * 2.4, 0, Math.PI * 2);
+          fxCtx.fill();
+        }
+      }
+    }
 
     fxCtx.restore();
   }
@@ -940,13 +1336,61 @@
         state.visibility = 0.0; state.dissolve = 1.0; state.bloomWave = 0.0; state.mode = 'idle';
         phaseText.textContent = '迎宾结束 · 扇面已消散';
       }
+    } else if (state.mode === 'farewell') {
+      state.phaseTime += dt;
+      const holdEnd = 1.05;
+      const convergeEnd = holdEnd + 0.85;
+      const foldEnd = convergeEnd + state.farewellDur;
+
+      if (state.phaseTime < holdEnd) {
+        state.door = 1.0;
+        state.visibility = 1.0;
+        state.bloomWave = 1.0;
+        state.dissolve = 0.0;
+        state.farewellWave = 0.0;
+        if (state.farewellAutoStep && !state.farewellStepped && state.phaseTime >= 0.24) {
+          state.farewellStepped = true;
+          const r = 0.66 * state.fanRadius;
+          const a = MAX_DOOR_RAD * 0.52;
+          spawnFootstep(r * Math.cos(a), r * Math.sin(a));
+        }
+        phaseText.textContent = state.farewellStepped
+          ? '离车告别 · 落脚涟漪激发流金'
+          : '离车告别 · 全开驻留送行';
+      } else if (state.phaseTime < convergeEnd) {
+        const cp = (state.phaseTime - holdEnd) / (convergeEnd - holdEnd);
+        state.door = 1.0;
+        state.visibility = 1.0;
+        state.bloomWave = 1.0;
+        state.dissolve = 0.0;
+        state.farewellWave = easeInOutCubic(cp);
+        phaseText.textContent = `离车告别 · 外弧流金回卷 ${Math.round(cp * 100)}%`;
+      } else if (state.phaseTime < foldEnd) {
+        const fp = (state.phaseTime - convergeEnd) / Math.max(0.2, state.farewellDur);
+        state.door = Math.max(0, 1.0 - easeInOutSine(fp));
+        state.bloomWave = Math.max(0.25, 1.0 - fp * 0.75);
+        state.farewellWave = 1.0;
+        state.dissolve = fp > 0.45 ? easeInOutCubic((fp - 0.45) / 0.55) * 0.58 : 0.0;
+        state.visibility = 1.0 - Math.pow(fp, 2.6) * 0.96;
+        phaseText.textContent = `离车告别 · 反向收扇关门 ${Math.round(state.door * 68)}°`;
+      } else {
+        state.door = 0.0;
+        state.visibility = 0.0;
+        state.dissolve = 0.0;
+        state.bloomWave = 0.0;
+        state.farewellWave = 0.0;
+        state.mode = 'idle';
+        phaseText.textContent = '离车告别完成 · 扇面已优雅收拢';
+      }
     } else if (state.mode === 'showcase') {
       state.door = 1.0;
       state.visibility = 1.0;
       state.dissolve = 0.0;
       state.bloomWave = 1.0;
-      phaseText.textContent = '全开常亮赏析 · 浮光跃金持续流动';
+      state.farewellWave = 0.0;
+      phaseText.textContent = '全开常亮赏析 · 点击地面扇面可触发落脚涟漪';
     } else if (state.mode === 'manual') {
+      state.farewellWave = 0.0;
       const manualDelay = Math.max(0, BLOOM_DELAY);
       if (state.door >= 0.995) {
         state.manualFullTime += dt;
@@ -968,6 +1412,22 @@
 
     syncDoorVisual(state.door);
 
+    // Pack active floor ripples into shader uniform arrays
+    for (let i = 0; i < MAX_RIPPLES; i++) {
+      const rp = ripples[i];
+      if (rp) {
+        const age = tSec - rp.startTime;
+        ripplePosUniform[i * 2] = rp.fx;
+        ripplePosUniform[i * 2 + 1] = rp.fy;
+        rippleAgeUniform[i] = age < 2.65 ? age : -1.0;
+      } else {
+        ripplePosUniform[i * 2] = 0;
+        ripplePosUniform[i * 2 + 1] = 0;
+        rippleAgeUniform[i] = -1.0;
+      }
+    }
+    const weatherCode = state.weather === 'rain' ? 1.0 : (state.weather === 'snow' ? 2.0 : 0.0);
+
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniformMatrix3fv(uniforms.uInvFloorH, false, invH_floor);
@@ -982,9 +1442,16 @@
     gl.uniform1f(uniforms.uGoldOp, state.goldOp);
     gl.uniform1f(uniforms.uGoldSpeed, state.goldSpeed);
     gl.uniform1f(uniforms.uGlow, state.glow);
+    gl.uniform2fv(uniforms.uRipplePos, ripplePosUniform);
+    gl.uniform1fv(uniforms.uRippleAge, rippleAgeUniform);
+    gl.uniform1f(uniforms.uRippleAmp, state.rippleEnabled ? state.rippleAmp : 0.0);
+    gl.uniform1f(uniforms.uRippleExcite, state.rippleEnabled ? state.rippleExcite : 0.0);
+    gl.uniform1f(uniforms.uWeatherMode, weatherCode);
+    gl.uniform1f(uniforms.uWeatherInt, state.weatherIntensity);
+    gl.uniform1f(uniforms.uFarewellWave, state.farewellWave);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    drawProjectorBeam(tSec);
+    drawProjectorBeam(tSec, dt);
     drawCalibOverlay();
 
     if (recorder && recorder.state === 'recording') {
@@ -1009,23 +1476,146 @@
   }
   requestAnimationFrame(tick);
 
-  // === Controls ===
+  // === Controls & Welcome Mode Hierarchy ===
+  const btnPlayWelcome = document.getElementById('btnPlayWelcome');
+
   function triggerWelcome() {
-    state.door = 0; state.visibility = 1; state.dissolve = 0; state.bloomWave = 0;
+    state.door = 0; state.visibility = 1; state.dissolve = 0; state.bloomWave = 0; state.farewellWave = 0;
     state.phaseTime = 0; state.mode = 'opening';
   }
-  document.getElementById('btnPlayWelcome').onclick = triggerWelcome;
+  function triggerFarewell() {
+    state.door = 1.0; state.visibility = 1.0; state.dissolve = 0; state.bloomWave = 1.0; state.farewellWave = 0;
+    state.farewellStepped = false; state.phaseTime = 0; state.mode = 'farewell';
+  }
+  function triggerCurrentScene() {
+    if (state.sceneMode === 'farewell') triggerFarewell();
+    else if (state.sceneMode === 'showcase') {
+      state.mode = 'showcase'; state.bloomWave = 1.0; state.farewellWave = 0;
+      const r = (0.48 + Math.random() * 0.30) * state.fanRadius;
+      const a = (0.22 + Math.random() * 0.56) * MAX_DOOR_RAD;
+      spawnFootstep(r * Math.cos(a), r * Math.sin(a));
+    } else {
+      triggerWelcome();
+    }
+  }
+  function triggerCenterStep() {
+    if (state.door < 0.25 || state.visibility < 0.1) {
+      setSceneMode('showcase', false);
+      state.mode = 'showcase'; state.door = 1.0; state.visibility = 1.0; state.dissolve = 0.0; state.bloomWave = 1.0;
+    }
+    const r = (0.50 + Math.random() * 0.28) * state.fanRadius;
+    const a = (0.22 + Math.random() * 0.56) * MAX_DOOR_RAD;
+    spawnFootstep(r * Math.cos(a), r * Math.sin(a));
+  }
+
+  function syncSceneUI() {
+    document.querySelectorAll('[data-scene]').forEach(el => {
+      el.classList.toggle('active', el.dataset.scene === state.sceneMode);
+    });
+    if (state.sceneMode === 'farewell') {
+      btnPlayWelcome.textContent = '▶ 模拟离车反向收扇';
+    } else if (state.sceneMode === 'showcase') {
+      btnPlayWelcome.textContent = '✦ 常亮赏析 · 点击落脚';
+    } else {
+      btnPlayWelcome.textContent = '▶ 模拟解锁开门迎宾';
+    }
+  }
+  function setSceneMode(scene, autoRun = true) {
+    state.sceneMode = scene;
+    syncSceneUI();
+    saveParams();
+    if (autoRun) {
+      if (scene === 'welcome') triggerWelcome();
+      else if (scene === 'farewell') triggerFarewell();
+      else if (scene === 'showcase') { state.mode = 'showcase'; state.bloomWave = 1.0; state.farewellWave = 0; }
+    }
+  }
+  function syncWeatherUI() {
+    document.querySelectorAll('[data-weather]').forEach(el => {
+      el.classList.toggle('active', el.dataset.weather === state.weather);
+    });
+  }
+  function setWeather(w) {
+    state.weather = w;
+    syncWeatherUI();
+    saveParams();
+  }
+
+  document.querySelectorAll('[data-scene]').forEach(el => {
+    el.addEventListener('click', () => setSceneMode(el.dataset.scene, true));
+  });
+  document.querySelectorAll('[data-weather]').forEach(el => {
+    el.addEventListener('click', () => setWeather(el.dataset.weather));
+  });
+
+  // Drawer top-level tabs: 迎宾模式 vs 光学参数
+  const tabMode = document.getElementById('tabMode');
+  const tabParams = document.getElementById('tabParams');
+  const paneMode = document.getElementById('paneMode');
+  const paneParams = document.getElementById('paneParams');
+  function setDrawerTab(which) {
+    const isMode = which === 'mode';
+    tabMode.classList.toggle('active', isMode);
+    tabParams.classList.toggle('active', !isMode);
+    paneMode.classList.toggle('hidden', !isMode);
+    paneParams.classList.toggle('hidden', isMode);
+  }
+  tabMode.onclick = () => setDrawerTab('mode');
+  tabParams.onclick = () => setDrawerTab('params');
+
+  btnPlayWelcome.onclick = triggerCurrentScene;
+  document.getElementById('btnSimStep').onclick = triggerCenterStep;
+  document.getElementById('btnSimStepDrawer').onclick = triggerCenterStep;
   document.getElementById('btnCloseDoor').onclick = () => {
-    state.mode = 'idle'; state.door = 0; state.visibility = 0; state.dissolve = 0; state.bloomWave = 0; state.manualFullTime = 0;
+    state.mode = 'idle'; state.door = 0; state.visibility = 0; state.dissolve = 0; state.bloomWave = 0; state.farewellWave = 0; state.manualFullTime = 0;
+    ripples.length = 0; stepSparks.length = 0;
     phaseText.textContent = '待机 · 车门已关闭';
   };
-  document.getElementById('btnHoldOpen').onclick = () => { state.mode = 'showcase'; state.bloomWave = 1.0; };
+
+  // Interactive Stage Floor Stepping (Click / Drag over fan projection -> True 3D Floor Ripples)
+  let isStepDragging = false;
+  let lastStepFloor = null;
+  let lastStepAt = 0;
+  function tryStageStep(e, isDrag) {
+    if (state.calib || !state.rippleEnabled) return;
+    if (e.target.closest('.topbar, .dock, .drawer, .clean-exit')) return;
+    if (state.door < 0.08 || state.visibility < 0.08) return;
+    const rect = stageWrap.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    const fp = projectScreenToFloor(nx, ny);
+    if (!fp || !isPointInFanFloor(fp.x, fp.y, 0.14)) return;
+    const now = performance.now();
+    if (isDrag && lastStepFloor) {
+      if (now - lastStepAt < 260 || Math.hypot(fp.x - lastStepFloor.x, fp.y - lastStepFloor.y) < 0.14) return;
+    }
+    spawnFootstep(fp.x, fp.y);
+    lastStepFloor = fp;
+    lastStepAt = now;
+  }
+  stageWrap.addEventListener('pointerdown', (e) => {
+    if (state.calib || e.target.closest('.topbar, .dock, .drawer, .clean-exit')) return;
+    isStepDragging = true;
+    tryStageStep(e, false);
+  });
+  stageWrap.addEventListener('pointermove', (e) => {
+    if (!state.calib && state.rippleEnabled && state.door >= 0.08 && state.visibility >= 0.08 && !e.target.closest('.topbar, .dock, .drawer, .clean-exit')) {
+      const rect = stageWrap.getBoundingClientRect();
+      const fp = projectScreenToFloor((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
+      stageWrap.classList.toggle('step-ready', !!(fp && isPointInFanFloor(fp.x, fp.y, 0.14)));
+    } else {
+      stageWrap.classList.remove('step-ready');
+    }
+    if (isStepDragging) tryStageStep(e, true);
+  });
+  window.addEventListener('pointerup', () => { isStepDragging = false; lastStepFloor = null; });
 
   rngDoor.addEventListener('input', () => {
     state.mode = 'manual';
     state.door = Number(rngDoor.value) / 1000;
     state.visibility = state.door > 0.005 ? 1.0 : 0.0;
     state.dissolve = 0.0;
+    state.farewellWave = 0.0;
     if (state.door < 0.995) { state.manualFullTime = 0; state.bloomWave = 0; }
     phaseText.textContent = `手动联动（柔光低亮）· 车门 ${Math.round(state.door * 68)}°`;
   });
@@ -1044,7 +1634,15 @@
         holdDur: state.holdDur,
         fadeDur: state.fadeDur,
         showBeam: state.showBeam,
-        beamOp: state.beamOp
+        beamOp: state.beamOp,
+        sceneMode: state.sceneMode,
+        weather: state.weather,
+        weatherIntensity: state.weatherIntensity,
+        rippleEnabled: state.rippleEnabled,
+        rippleAmp: state.rippleAmp,
+        rippleExcite: state.rippleExcite,
+        farewellDur: state.farewellDur,
+        farewellAutoStep: state.farewellAutoStep
       }));
     } catch {}
   }
@@ -1078,9 +1676,23 @@
   bindRange('rngHoldDur', 'valHoldDur', v => `${(v/10).toFixed(1)} s`, () => state.holdDur * 10, v => state.holdDur = v / 10);
   bindRange('rngFadeDur', 'valFadeDur', v => `${(v/10).toFixed(1)} s`, () => state.fadeDur * 10, v => state.fadeDur = v / 10);
   bindRange('rngBeamOp', 'valBeamOp', v => `${v}%`, () => state.beamOp * 100, v => state.beamOp = v / 100);
+  bindRange('rngRippleAmp', 'valRippleAmp', v => `${v}%`, () => state.rippleAmp * 100, v => state.rippleAmp = v / 100);
+  bindRange('rngRippleExcite', 'valRippleExcite', v => `${v}%`, () => state.rippleExcite * 100, v => state.rippleExcite = v / 100);
+  bindRange('rngFarewellDur', 'valFarewellDur', v => `${(v/10).toFixed(1)} s`, () => state.farewellDur * 10, v => state.farewellDur = v / 10);
+  bindRange('rngWeatherInt', 'valWeatherInt', v => `${v}%`, () => state.weatherIntensity * 100, v => state.weatherIntensity = v / 100);
+
   const chkBeam = document.getElementById('chkBeam');
   chkBeam.checked = !!state.showBeam;
   chkBeam.addEventListener('change', (e) => { state.showBeam = e.target.checked; saveParams(); });
+  const chkRipple = document.getElementById('chkRipple');
+  chkRipple.checked = !!state.rippleEnabled;
+  chkRipple.addEventListener('change', (e) => { state.rippleEnabled = e.target.checked; saveParams(); });
+  const chkFarewellStep = document.getElementById('chkFarewellStep');
+  chkFarewellStep.checked = !!state.farewellAutoStep;
+  chkFarewellStep.addEventListener('change', (e) => { state.farewellAutoStep = e.target.checked; saveParams(); });
+
+  syncSceneUI();
+  syncWeatherUI();
 
   const btnCalib = document.getElementById('btnCalib');
   btnCalib.onclick = () => {
@@ -1109,6 +1721,10 @@
     Object.assign(state, DEFAULT_PARAMS);
     rangeSyncers.forEach(fn => fn());
     chkBeam.checked = !!state.showBeam;
+    chkRipple.checked = !!state.rippleEnabled;
+    chkFarewellStep.checked = !!state.farewellAutoStep;
+    syncSceneUI();
+    syncWeatherUI();
     try { localStorage.removeItem(PARAMS_STORAGE_KEY); } catch {}
   };
   document.getElementById('btnCopyAE').onclick = () => {
@@ -1158,11 +1774,11 @@
     recorder.start();
     btnRecord.classList.add('recording');
     btnRecord.textContent = '⏹ 停止并保存 WebM';
-    triggerWelcome();
+    triggerCurrentScene();
   };
 
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); triggerWelcome(); }
+    if (e.code === 'Space') { e.preventDefault(); triggerCurrentScene(); }
     if (e.key === 'h' || e.key === 'H') toggleClean();
   });
 })();
