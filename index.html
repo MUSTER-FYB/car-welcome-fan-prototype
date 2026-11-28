@@ -190,20 +190,20 @@
 
         <h2>迎宾时序节奏</h2>
         <div class="ctrl">
-          <div class="ctrl-head"><span>开门展开时长</span><span id="valOpenDur">2.0 s</span></div>
-          <input type="range" id="rngOpenDur" min="10" max="40" value="20" />
+          <div class="ctrl-head"><span>开门展开时长</span><span id="valOpenDur">1.6 s</span></div>
+          <input type="range" id="rngOpenDur" min="10" max="40" value="16" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">0.0 s (无缝)</span></div>
-          <input type="range" id="rngBloomDelay" min="-5" max="20" value="0" />
+          <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">提前 0.1 s</span></div>
+          <input type="range" id="rngBloomDelay" min="-5" max="20" value="-1" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>转轴光波扩散速度</span><span id="valBloomSpeed">1.0x (0.7s)</span></div>
-          <input type="range" id="rngBloomSpeed" min="30" max="300" value="100" />
+          <div class="ctrl-head"><span>转轴光波扩散速度</span><span id="valBloomSpeed">0.5x (1.40s)</span></div>
+          <input type="range" id="rngBloomSpeed" min="30" max="300" value="50" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>全开渐亮与流金驻留</span><span id="valHoldDur">1.8 s</span></div>
-          <input type="range" id="rngHoldDur" min="10" max="80" value="18" />
+          <div class="ctrl-head"><span>全开渐亮与流金驻留</span><span id="valHoldDur">2.3 s</span></div>
+          <input type="range" id="rngHoldDur" min="10" max="80" value="23" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>缓缓消散时长</span><span id="valFadeDur">1.8 s</span></div>
@@ -216,16 +216,17 @@
           <input type="checkbox" id="chkBeam" checked />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">44%</span></div>
-          <input type="range" id="rngBeamOp" min="0" max="100" value="44" />
+          <div class="ctrl-head"><span>投影光束柔和度</span><span id="valBeamOp">42%</span></div>
+          <input type="range" id="rngBeamOp" min="0" max="100" value="42" />
         </div>
 
         <div class="hint">
-          已按真实地平面三维圆弧标定：扇柄圆轴已去除，两条直线边严格贴合<b>车身门槛</b>与<b>车门底边</b>，外弧线贴合<b>车门开启圆弧</b>。按 <b>H</b> 隐藏底部栏可欣赏最完整的大弧面！
+          已按真实地平面三维圆弧标定：扇柄圆轴已去除，两条直线边严格贴合<b>车身门槛</b>与<b>车门底边</b>，外弧线贴合<b>车门开启圆弧</b>。参数调整会自动本地保存，按 <b>H</b> 可切换纯净演示！
         </div>
-        <div style="display:flex; gap:6px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
           <button class="btn" id="btnResetArc" style="flex:1; justify-content:center;">重置车门弧线</button>
           <button class="btn" id="btnCopyAE" style="flex:1; justify-content:center;">复制校准坐标</button>
+          <button class="btn" id="btnResetParams" style="flex:1 1 100%; justify-content:center;">恢复已保存默认参数</button>
         </div>
       </div>
 
@@ -281,26 +282,34 @@
     }
   } catch {}
 
-  const state = {
-    door: 0.0,         // 0..1 door open progress
-    visibility: 0.0,
-    dissolve: 0.0,
-    bloomWave: 0.0,    // 0 = low opacity/brightness during opening & first 0.2s at full open; 0->1 radial bloom from hinge outward
-    manualFullTime: 0.0,
-    mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
-    phaseTime: 0.0,
-    fanRadius: 1.08,   // 1.0 = exact door length arc, 1.08 = grand rounded arc staying 100% inside 16:9 frame
+  const PARAMS_STORAGE_KEY = 'car_fan_welcome_params_v1';
+  const DEFAULT_PARAMS = {
+    fanRadius: 1.08,
     whiteOp: 0.36,
     goldOp: 0.90,
     goldSpeed: 1.2,
     glow: 0.78,
-    openDur: 2.0,
-    bloomDelay: 0.0,
-    bloomSpeed: 1.0,
-    holdDur: 1.8,
+    openDur: 1.6,
+    bloomDelay: -0.1,
+    bloomSpeed: 0.5,
+    holdDur: 2.3,
     fadeDur: 1.8,
     showBeam: true,
-    beamOp: 0.44,
+    beamOp: 0.42
+  };
+  let savedParams = {};
+  try { savedParams = JSON.parse(localStorage.getItem(PARAMS_STORAGE_KEY) || '{}') || {}; } catch {}
+
+  const state = {
+    door: 0.0,         // 0..1 door open progress
+    visibility: 0.0,
+    dissolve: 0.0,
+    bloomWave: 0.0,    // 0 = low opacity/brightness during opening; 0->1 radial bloom from hinge outward
+    manualFullTime: 0.0,
+    mode: 'idle',      // 'idle' | 'opening' | 'holding' | 'fading' | 'manual' | 'showcase'
+    phaseTime: 0.0,
+    ...DEFAULT_PARAMS,
+    ...savedParams,
     calib: false,
     videoReady: false,
     videoDuration: 4.0
@@ -1021,27 +1030,57 @@
     phaseText.textContent = `手动联动（柔光低亮）· 车门 ${Math.round(state.door * 68)}°`;
   });
 
-  function bindRange(id, valId, fmt, setter) {
+  function saveParams() {
+    try {
+      localStorage.setItem(PARAMS_STORAGE_KEY, JSON.stringify({
+        fanRadius: state.fanRadius,
+        whiteOp: state.whiteOp,
+        goldOp: state.goldOp,
+        goldSpeed: state.goldSpeed,
+        glow: state.glow,
+        openDur: state.openDur,
+        bloomDelay: state.bloomDelay,
+        bloomSpeed: state.bloomSpeed,
+        holdDur: state.holdDur,
+        fadeDur: state.fadeDur,
+        showBeam: state.showBeam,
+        beamOp: state.beamOp
+      }));
+    } catch {}
+  }
+
+  const rangeSyncers = [];
+  function bindRange(id, valId, fmt, getter, setter) {
     const el = document.getElementById(id);
     const out = document.getElementById(valId);
+    const sync = () => {
+      const v = Math.round(getter());
+      el.value = String(v);
+      out.textContent = fmt(v);
+    };
+    sync();
+    rangeSyncers.push(sync);
     el.addEventListener('input', () => {
       const v = Number(el.value);
       out.textContent = fmt(v);
       setter(v);
+      saveParams();
     });
   }
-  bindRange('rngRadius', 'valRadius', v => `${(v/100).toFixed(2)}x`, v => state.fanRadius = v / 100);
-  bindRange('rngWhiteOp', 'valWhiteOp', v => `${v}%`, v => state.whiteOp = v / 100);
-  bindRange('rngGoldOp', 'valGoldOp', v => `${v}%`, v => state.goldOp = v / 100);
-  bindRange('rngGoldSpeed', 'valGoldSpeed', v => `${(v/100).toFixed(1)}x`, v => state.goldSpeed = v / 100);
-  bindRange('rngGlow', 'valGlow', v => `${v}%`, v => state.glow = v / 100);
-  bindRange('rngOpenDur', 'valOpenDur', v => `${(v/10).toFixed(1)} s`, v => state.openDur = v / 10);
-  bindRange('rngBloomDelay', 'valBloomDelay', v => v < 0 ? `提前 ${(-v/10).toFixed(1)} s` : (v === 0 ? '0.0 s (无缝)' : `+${(v/10).toFixed(1)} s`), v => state.bloomDelay = v / 10);
-  bindRange('rngBloomSpeed', 'valBloomSpeed', v => { const s = v / 100; return `${s.toFixed(1)}x (${(0.70 / s).toFixed(2)}s)`; }, v => state.bloomSpeed = v / 100);
-  bindRange('rngHoldDur', 'valHoldDur', v => `${(v/10).toFixed(1)} s`, v => state.holdDur = v / 10);
-  bindRange('rngFadeDur', 'valFadeDur', v => `${(v/10).toFixed(1)} s`, v => state.fadeDur = v / 10);
-  bindRange('rngBeamOp', 'valBeamOp', v => `${v}%`, v => state.beamOp = v / 100);
-  document.getElementById('chkBeam').addEventListener('change', (e) => { state.showBeam = e.target.checked; });
+  bindRange('rngRadius', 'valRadius', v => `${(v/100).toFixed(2)}x`, () => state.fanRadius * 100, v => state.fanRadius = v / 100);
+  bindRange('rngWhiteOp', 'valWhiteOp', v => `${v}%`, () => state.whiteOp * 100, v => state.whiteOp = v / 100);
+  bindRange('rngGoldOp', 'valGoldOp', v => `${v}%`, () => state.goldOp * 100, v => state.goldOp = v / 100);
+  bindRange('rngGoldSpeed', 'valGoldSpeed', v => `${(v/100).toFixed(1)}x`, () => state.goldSpeed * 100, v => state.goldSpeed = v / 100);
+  bindRange('rngGlow', 'valGlow', v => `${v}%`, () => state.glow * 100, v => state.glow = v / 100);
+  bindRange('rngOpenDur', 'valOpenDur', v => `${(v/10).toFixed(1)} s`, () => state.openDur * 10, v => state.openDur = v / 10);
+  bindRange('rngBloomDelay', 'valBloomDelay', v => v < 0 ? `提前 ${(-v/10).toFixed(1)} s` : (v === 0 ? '0.0 s (无缝)' : `+${(v/10).toFixed(1)} s`), () => state.bloomDelay * 10, v => state.bloomDelay = v / 10);
+  bindRange('rngBloomSpeed', 'valBloomSpeed', v => { const s = v / 100; return `${s.toFixed(1)}x (${(0.70 / s).toFixed(2)}s)`; }, () => state.bloomSpeed * 100, v => state.bloomSpeed = v / 100);
+  bindRange('rngHoldDur', 'valHoldDur', v => `${(v/10).toFixed(1)} s`, () => state.holdDur * 10, v => state.holdDur = v / 10);
+  bindRange('rngFadeDur', 'valFadeDur', v => `${(v/10).toFixed(1)} s`, () => state.fadeDur * 10, v => state.fadeDur = v / 10);
+  bindRange('rngBeamOp', 'valBeamOp', v => `${v}%`, () => state.beamOp * 100, v => state.beamOp = v / 100);
+  const chkBeam = document.getElementById('chkBeam');
+  chkBeam.checked = !!state.showBeam;
+  chkBeam.addEventListener('change', (e) => { state.showBeam = e.target.checked; saveParams(); });
 
   const btnCalib = document.getElementById('btnCalib');
   btnCalib.onclick = () => {
@@ -1066,6 +1105,12 @@
     updateHomography();
     saveCalib();
   };
+  document.getElementById('btnResetParams').onclick = () => {
+    Object.assign(state, DEFAULT_PARAMS);
+    rangeSyncers.forEach(fn => fn());
+    chkBeam.checked = !!state.showBeam;
+    try { localStorage.removeItem(PARAMS_STORAGE_KEY); } catch {}
+  };
   document.getElementById('btnCopyAE').onclick = () => {
     const data = {
       compSize: [1920, 1080],
@@ -1074,10 +1119,18 @@
       fanRadiusScale: state.fanRadius,
       whiteOpacity: Math.round(state.whiteOp*100),
       goldOpacity: Math.round(state.goldOp*100),
-      openSec: state.openDur, holdSec: state.holdDur, fadeSec: state.fadeDur
+      goldSpeed: state.goldSpeed,
+      glow: Math.round(state.glow*100),
+      openSec: state.openDur,
+      bloomDelaySec: state.bloomDelay,
+      bloomSpeed: state.bloomSpeed,
+      holdSec: state.holdDur,
+      fadeSec: state.fadeDur,
+      showBeam: state.showBeam,
+      beamOpacity: Math.round(state.beamOp*100)
     };
     navigator.clipboard?.writeText(JSON.stringify(data, null, 2));
-    alert('已复制当前车门圆弧锚点与参数到剪贴板！');
+    alert('已复制当前车门圆弧锚点与全部参数到剪贴板！');
   };
 
   // Recorder
