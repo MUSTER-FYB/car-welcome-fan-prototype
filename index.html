@@ -194,8 +194,8 @@
           <input type="range" id="rngOpenDur" min="10" max="40" value="20" />
         </div>
         <div class="ctrl">
-          <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">0.2 s</span></div>
-          <input type="range" id="rngBloomDelay" min="0" max="20" value="2" />
+          <div class="ctrl-head"><span>完全展开静置时间</span><span id="valBloomDelay">0.0 s (无缝)</span></div>
+          <input type="range" id="rngBloomDelay" min="-5" max="20" value="0" />
         </div>
         <div class="ctrl">
           <div class="ctrl-head"><span>转轴光波扩散速度</span><span id="valBloomSpeed">1.0x (0.7s)</span></div>
@@ -295,7 +295,7 @@
     goldSpeed: 1.2,
     glow: 0.78,
     openDur: 2.0,
-    bloomDelay: 0.2,
+    bloomDelay: 0.0,
     bloomSpeed: 1.0,
     holdDur: 1.8,
     fadeDur: 1.8,
@@ -577,14 +577,12 @@
       // Soft pleat luminance contour matching the 8 rounded fan petals (adds graceful silk fold depth)
       float pleatShade = 0.88 + 0.14 * roundedLobe;
 
-      // Two-stage brightness choreography:
-      // 1) During door opening (0°->68°) and first 0.2s after full open (uBloomWave == 0): low opacity & calm low brightness
-      // 2) After 0.2s: smoothly awakens radially outward from door hinge O (normR=0) to outer fan petals (normR=1)
-      float bloomActive = smoothstep(0.0, 0.03, uBloomWave);
-      float wakeFront = uBloomWave * 1.48 - 0.14;
-      float radialBloom = smoothstep(normR - 0.30, normR + 0.16, wakeFront) * bloomActive;
-      radialBloom = mix(radialBloom, 1.0, smoothstep(0.97, 1.0, uBloomWave));
-      float wakeCrest = exp(-pow((normR - (uBloomWave * 1.18 - 0.08)) * 5.2, 2.0)) * sin(uBloomWave * 3.14159265);
+      // Two-stage brightness choreography (zero startup dead-zone: hinge O begins glowing the exact instant uBloomWave > 0)
+      float bloomActive = smoothstep(0.0, 0.015, uBloomWave);
+      float wakeFront = uBloomWave * 1.32;
+      float radialBloom = smoothstep(normR - 0.26, normR + 0.06, wakeFront) * bloomActive;
+      radialBloom = mix(radialBloom, 1.0, smoothstep(0.96, 1.0, uBloomWave));
+      float wakeCrest = exp(-pow((normR - uBloomWave * 1.08) * 5.0, 2.0)) * sin(uBloomWave * 3.14159265);
 
       float whiteOpenScale = mix(0.40, 1.0, radialBloom);
       float goldOpenScale  = mix(0.45, 1.0, radialBloom);
@@ -693,6 +691,8 @@
   resize();
 
   function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+  function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
   function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
   // === Soft Volumetric Projector Beam from Square Dashboard Projector ===
@@ -879,37 +879,46 @@
     lastTs = now;
     const tSec = now / 1000;
 
-    const BLOOM_DELAY = state.bloomDelay; // 0.0~2.0s calm low-brightness pause after full open (default 0.2s)
+    const BLOOM_DELAY = state.bloomDelay; // -0.5s (early seamless overlap) .. 0.0s (instant) .. +2.0s (pause)
     const BLOOM_DUR   = 0.70 / Math.max(0.2, state.bloomSpeed); // hinge-outward brightening wave duration (default 0.7s @ 1.0x)
 
-    if (state.mode === 'opening') {
+    if (state.mode === 'opening' || state.mode === 'holding') {
+      // Single continuous welcome clock across opening -> holding (zero boundary hiccup & supports seamless 0s/negative overlap!)
       state.phaseTime += dt;
-      const p = Math.min(1, state.phaseTime / state.openDur);
-      state.door = easeInOutCubic(p);
+      const openEnd = state.openDur;
+      const totalHoldEnd = openEnd + state.holdDur;
+      const pOpen = Math.min(1, state.phaseTime / openEnd);
+      state.door = pOpen >= 1 ? 1.0 : easeInOutSine(pOpen);
       state.visibility = 1.0;
       state.dissolve = 0.0;
-      state.bloomWave = 0.0;
-      phaseText.textContent = `迎宾展开中（柔光低亮）· ${Math.round(state.door * 68)}°`;
-      if (p >= 1) { state.mode = 'holding'; state.phaseTime = 0; }
-    } else if (state.mode === 'holding') {
-      state.phaseTime += dt;
-      state.door = 1.0;
-      state.visibility = 1.0;
-      state.dissolve = 0.0;
-      if (state.phaseTime <= BLOOM_DELAY) {
+
+      const bloomStart = Math.max(0.15, openEnd + BLOOM_DELAY);
+      if (state.phaseTime <= bloomStart) {
         state.bloomWave = 0.0;
-        phaseText.textContent = `全开蓄光 · 柔和低亮`;
       } else {
-        const bp = Math.min(1, (state.phaseTime - BLOOM_DELAY) / BLOOM_DUR);
-        state.bloomWave = easeInOutCubic(bp);
-        if (bp < 1) {
+        const bp = Math.min(1, (state.phaseTime - bloomStart) / BLOOM_DUR);
+        state.bloomWave = easeOutCubic(bp);
+      }
+
+      if (pOpen < 1) {
+        state.mode = 'opening';
+        phaseText.textContent = state.bloomWave > 0.01
+          ? `迎宾展开 · 提前衔接渐亮 ${Math.round(state.bloomWave * 100)}%`
+          : `迎宾展开中（柔光低亮）· ${Math.round(state.door * 68)}°`;
+      } else if (state.phaseTime < totalHoldEnd) {
+        state.mode = 'holding';
+        if (state.bloomWave <= 0.001) {
+          phaseText.textContent = `全开蓄光 · 柔和低亮`;
+        } else if (state.bloomWave < 0.995) {
           phaseText.textContent = `由转轴向外渐亮 · ${Math.round(state.bloomWave * 100)}%`;
         } else {
-          const rem = Math.max(0, state.holdDur - state.phaseTime);
+          const rem = Math.max(0, totalHoldEnd - state.phaseTime);
           phaseText.textContent = `全开驻留 · 浮光跃金 (${rem.toFixed(1)}s)`;
         }
+      } else {
+        state.mode = 'fading';
+        state.phaseTime = 0;
       }
-      if (state.phaseTime >= state.holdDur) { state.mode = 'fading'; state.phaseTime = 0; }
     } else if (state.mode === 'fading') {
       state.phaseTime += dt;
       const p = Math.min(1, state.phaseTime / state.fadeDur);
@@ -929,14 +938,15 @@
       state.bloomWave = 1.0;
       phaseText.textContent = '全开常亮赏析 · 浮光跃金持续流动';
     } else if (state.mode === 'manual') {
+      const manualDelay = Math.max(0, BLOOM_DELAY);
       if (state.door >= 0.995) {
         state.manualFullTime += dt;
-        if (state.manualFullTime <= BLOOM_DELAY) {
+        if (state.manualFullTime < manualDelay) {
           state.bloomWave = 0.0;
           phaseText.textContent = `手动全开 68° · 蓄光低亮`;
         } else {
-          const bp = Math.min(1, (state.manualFullTime - BLOOM_DELAY) / BLOOM_DUR);
-          state.bloomWave = easeInOutCubic(bp);
+          const bp = Math.min(1, (state.manualFullTime - manualDelay) / BLOOM_DUR);
+          state.bloomWave = easeOutCubic(bp);
           phaseText.textContent = bp < 1
             ? `手动全开 68° · 由转轴向外渐亮 ${Math.round(state.bloomWave * 100)}%`
             : `手动全开 68° · 浮光跃金`;
@@ -1026,7 +1036,7 @@
   bindRange('rngGoldSpeed', 'valGoldSpeed', v => `${(v/100).toFixed(1)}x`, v => state.goldSpeed = v / 100);
   bindRange('rngGlow', 'valGlow', v => `${v}%`, v => state.glow = v / 100);
   bindRange('rngOpenDur', 'valOpenDur', v => `${(v/10).toFixed(1)} s`, v => state.openDur = v / 10);
-  bindRange('rngBloomDelay', 'valBloomDelay', v => `${(v/10).toFixed(1)} s`, v => state.bloomDelay = v / 10);
+  bindRange('rngBloomDelay', 'valBloomDelay', v => v < 0 ? `提前 ${(-v/10).toFixed(1)} s` : (v === 0 ? '0.0 s (无缝)' : `+${(v/10).toFixed(1)} s`), v => state.bloomDelay = v / 10);
   bindRange('rngBloomSpeed', 'valBloomSpeed', v => { const s = v / 100; return `${s.toFixed(1)}x (${(0.70 / s).toFixed(2)}s)`; }, v => state.bloomSpeed = v / 100);
   bindRange('rngHoldDur', 'valHoldDur', v => `${(v/10).toFixed(1)} s`, v => state.holdDur = v / 10);
   bindRange('rngFadeDur', 'valFadeDur', v => `${(v/10).toFixed(1)} s`, v => state.fadeDur = v / 10);
